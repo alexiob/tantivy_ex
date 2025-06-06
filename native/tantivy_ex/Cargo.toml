@@ -1,0 +1,16 @@
+[package]
+name = "tantivy_ex"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tantivy_ex"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.36.1"
+tantivy = "0.22"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tempfile = "3.0"
+lazy_static = "1.4"

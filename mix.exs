@@ -1,15 +1,27 @@
 defmodule TantivyEx.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/alex-nexus/tantivy_ex"
+
   def project do
     [
       app: :tantivy_ex,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
-      # Remove the rustler compiler since we're handling load directly
       rustler_crates: rustler_crates(),
-      deps: deps()
+      deps: deps(),
+
+      # Hex.pm package information
+      package: package(),
+      description: description(),
+
+      # Documentation
+      name: "TantivyEx",
+      docs: docs(),
+      source_url: @source_url,
+      homepage_url: @source_url
     ]
   end
 
@@ -41,5 +53,48 @@ defmodule TantivyEx.MixProject do
       :prod -> :release
       _ -> :debug
     end
+  end
+
+  defp description do
+    "A comprehensive Elixir wrapper for the Tantivy full-text search engine, providing high-performance search capabilities with support for all field types, custom tokenizers, and advanced indexing features."
+  end
+
+  defp package do
+    [
+      name: "tantivy_ex",
+      files: ~w(lib priv native docs .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => @source_url,
+        "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md",
+        "Guides" => "#{@source_url}/tree/main/docs"
+      },
+      submitter: "alexiob",
+      maintainer: "alessandro@iob.dev"
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      source_ref: "v#{@version}",
+      source_url: @source_url,
+      extras: [
+        "README.md",
+        "CHANGELOG.md",
+        "docs/schema.md",
+        "docs/indexing.md",
+        "docs/search.md",
+        "docs/tokenizers.md"
+      ],
+      groups_for_extras: [
+        Guides: ~r/docs\/.*/
+      ],
+      groups_for_modules: [
+        Core: [TantivyEx, TantivyEx.Native],
+        Schema: [TantivyEx.Schema],
+        "Data Types": []
+      ]
+    ]
   end
 end
