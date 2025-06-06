@@ -85,6 +85,8 @@ defmodule TantivyEx.Schema do
   - `:text` - Field is tokenized and indexed for full-text search
   - `:text_stored` - Field is tokenized, indexed, and stored for retrieval
   - `:stored` - Field is only stored (not searchable)
+  - `:fast` - Field is tokenized, indexed, and optimized for fast access
+  - `:fast_stored` - Field is tokenized, indexed with positions, stored, and optimized for fast access and phrase queries
 
   ## Examples
 
@@ -101,6 +103,8 @@ defmodule TantivyEx.Schema do
         :text -> "TEXT"
         :text_stored -> "TEXT_STORED"
         :stored -> "STORED"
+        :fast -> "FAST"
+        :fast_stored -> "FAST_STORED"
         _ -> "TEXT"
       end
 
@@ -508,5 +512,27 @@ defmodule TantivyEx.Schema do
       {:error, reason} -> {:error, reason}
       message when is_binary(message) -> {:ok, message}
     end
+  end
+
+  @doc """
+  Checks if a field exists in the schema.
+
+  ## Parameters
+
+  - `schema`: The schema to check
+  - `field_name`: The name of the field to check for
+
+  ## Examples
+
+      iex> TantivyEx.Schema.field_exists?(schema, "title")
+      true
+      iex> TantivyEx.Schema.field_exists?(schema, "nonexistent_field")
+      false
+  """
+  @spec field_exists?(t(), String.t()) :: boolean()
+  def field_exists?(schema, field_name) when is_binary(field_name) do
+    # Get all field names and check if the given field_name is among them
+    field_names = Native.schema_get_field_names(schema)
+    Enum.member?(field_names, field_name)
   end
 end

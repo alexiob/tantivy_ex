@@ -1,5 +1,5 @@
 defmodule TantivyExTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest TantivyEx
 
   alias TantivyEx.{Schema, Index, IndexWriter, Searcher}

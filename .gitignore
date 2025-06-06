@@ -28,6 +28,9 @@ tantivy_ex-*.tar
 # Ignore Rust native libraries
 /priv/native/*
 
+# Ignore the Rust build directory
+/native/tantivy_ex/target
+
 # MacOS Finder directory attributes
 .DS_Store
 

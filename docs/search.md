@@ -52,7 +52,7 @@ end
 
 ### Full-Text Search
 
-Full-text search works on fields indexed with `:TEXT` or `:TEXT_STORED` options:
+Full-text search works on fields indexed with `:text` or `::text_stored` options:
 
 ```elixir
 # Single term
@@ -200,331 +200,623 @@ defmodule MyApp.SearchRanker do
           |> Enum.take(limit)
 
         {:ok, ranked_results}
-      error -> error
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp add_relevance_score(doc, query) do
-    # Simple relevance scoring based on query term frequency
-    query_terms = String.split(String.downcase(query))
-    title_score = calculate_field_score(doc["title"], query_terms, 3.0)
-    content_score = calculate_field_score(doc["content"], query_terms, 1.0)
+  # Simple relevance scoring based on term frequency
+  defp add_relevance_score(document, query) do
+    query_terms = extract_query_terms(query)
 
-    Map.put(doc, :relevance_score, title_score + content_score)
+    title_score = calculate_field_score(document["title"], query_terms, 2.0)
+    content_score = calculate_field_score(document["content"], query_terms, 1.0)
+
+    total_score = title_score + content_score
+
+    Map.put(document, :relevance_score, total_score)
+  end
+
+  defp extract_query_terms(query) do
+    query
+    |> String.downcase()
+    |> String.replace(~r/[^\w\s]/, "")
+    |> String.split()
+    |> Enum.reject(&(&1 in ["and", "or", "not"]))
   end
 
   defp calculate_field_score(field_value, query_terms, weight) when is_binary(field_value) do
     field_lower = String.downcase(field_value)
+
     term_frequency =
-      Enum.reduce(query_terms, 0, fn term, acc ->
-        acc + count_occurrences(field_lower, term)
+      query_terms
+      |> Enum.map(fn term ->
+        matches = Regex.scan(~r/#{Regex.escape(term)}/, field_lower)
+        length(matches)
       end)
+      |> Enum.sum()
 
     term_frequency * weight
   end
-  defp calculate_field_score(_, _, _), do: 0
 
-  defp count_occurrences(text, term) do
-    text
-    |> String.split()
-    |> Enum.count(&(&1 == term))
-  end
+  defp calculate_field_score(_field_value, _query_terms, _weight), do: 0.0
 end
 ```
 
 ## Advanced Search Patterns
 
-### Multi-Field Search Strategy
+### Query Building with the Query Module
+
+For complex queries, use the `Query` module for programmatic query construction:
 
 ```elixir
-defmodule MyApp.AdvancedSearch do
-  alias TantivyEx.Index
+alias TantivyEx.{Index, Query}
 
-  def multi_field_search(index, query, options \\ []) do
-    limit = Keyword.get(options, :limit, 10)
+# Create a query parser
+{:ok, parser} = Query.parser(index, ["title", "content"])
 
-    # Build query targeting multiple fields with different weights
-    enhanced_query = build_multi_field_query(query)
+# Term queries
+{:ok, term_query} = Query.term(parser, "field", "value")
+{:ok, results} = Index.search_with_query(index, term_query, 10)
 
-    case Index.search(index, enhanced_query, limit) do
-      {:ok, results} -> {:ok, enhance_results(results, query)}
-      error -> error
-    end
+# Phrase queries
+{:ok, phrase_query} = Query.phrase(parser, "field", ["exact", "phrase"])
+{:ok, results} = Index.search_with_query(index, phrase_query, 10)
+
+# Range queries
+{:ok, range_query} = Query.range(parser, "price", 10.0, 100.0, true, true)
+{:ok, results} = Index.search_with_query(index, range_query, 10)
+
+# Boolean queries
+{:ok, bool_query} = Query.boolean(parser)
+{:ok, bool_query} = Query.add_must(bool_query, term_query)
+{:ok, bool_query} = Query.add_should(bool_query, phrase_query)
+{:ok, results} = Index.search_with_query(index, bool_query, 10)
+
+# Fuzzy queries with edit distance
+{:ok, fuzzy_query} = Query.fuzzy_term(parser, "field", "misspeled", 2)
+{:ok, results} = Index.search_with_query(index, fuzzy_query, 10)
+```
+
+### Search Result Processing
+
+Transform and enrich search results for your application:
+
+```elixir
+defmodule MyApp.SearchProcessor do
+  def process_search_results(results, query, opts \\ []) do
+    results
+    |> add_highlights(query, opts)
+    |> add_snippets(query, opts)
+    |> add_metadata(opts)
+    |> format_for_api()
   end
 
-  defp build_multi_field_query(query) do
-    query_terms = String.split(query)
+  defp add_highlights(results, query, opts) do
+    highlight_length = Keyword.get(opts, :highlight_length, 200)
 
-    # Search in title (higher priority), content, and tags
-    title_query = "title:(#{Enum.join(query_terms, " OR ")})"
-    content_query = "content:(#{query})"
-    tags_query = "tags:(#{Enum.join(query_terms, " OR ")})"
-
-    "#{title_query} OR #{content_query} OR #{tags_query}"
-  end
-
-  defp enhance_results(results, original_query) do
     Enum.map(results, fn doc ->
-      doc
-      |> add_highlight_info(original_query)
-      |> add_match_info(original_query)
+      highlighted_title = highlight_text(doc["title"], query, highlight_length)
+      highlighted_content = highlight_text(doc["content"], query, highlight_length)
+
+      Map.merge(doc, %{
+        "title_highlighted" => highlighted_title,
+        "content_highlighted" => highlighted_content
+      })
     end)
   end
 
-  defp add_highlight_info(doc, query) do
-    # Simple highlighting - wrap matching terms
-    query_terms =
-      query
-      |> String.downcase()
-      |> String.split()
+  defp add_snippets(results, query, opts) do
+    snippet_length = Keyword.get(opts, :snippet_length, 300)
 
-    highlighted_title = highlight_text(doc["title"], query_terms)
-    highlighted_content = highlight_text(doc["content"], query_terms)
-
-    doc
-    |> Map.put("highlighted_title", highlighted_title)
-    |> Map.put("highlighted_content", highlighted_content)
-  end
-
-  defp highlight_text(text, query_terms) when is_binary(text) do
-    Enum.reduce(query_terms, text, fn term, acc ->
-      String.replace(acc, ~r/#{Regex.escape(term)}/i, "<mark>\\0</mark>")
-    end)
-  end
-  defp highlight_text(_, _), do: ""
-
-  defp add_match_info(doc, query) do
-    query_terms = String.split(String.downcase(query))
-    title_matches = count_matches(doc["title"], query_terms)
-    content_matches = count_matches(doc["content"], query_terms)
-
-    Map.put(doc, "match_info", %{
-      title_matches: title_matches,
-      content_matches: content_matches,
-      total_matches: title_matches + content_matches
-    })
-  end
-
-  defp count_matches(text, query_terms) when is_binary(text) do
-    text_lower = String.downcase(text)
-    Enum.reduce(query_terms, 0, fn term, acc ->
-      acc + length(String.split(text_lower, term)) - 1
-    end)
-  end
-  defp count_matches(_, _), do: 0
-end
-```
-
-### Filtered Search
-
-Combine full-text search with filters:
-
-```elixir
-defmodule MyApp.FilteredSearch do
-  def search_with_filters(index, query, filters, limit \\ 10) do
-    full_query = build_filtered_query(query, filters)
-    Index.search(index, full_query, limit)
-  end
-
-  defp build_filtered_query(query, filters) do
-    filter_clauses =
-      filters
-      |> Enum.map(&build_filter_clause/1)
-      |> Enum.join(" AND ")
-
-    case filter_clauses do
-      "" -> query
-      filters -> "(#{query}) AND (#{filters})"
-    end
-  end
-
-  defp build_filter_clause({:price_range, {min, max}}) do
-    "price:[#{min} TO #{max}]"
-  end
-
-  defp build_filter_clause({:category, category}) do
-    "category:\"#{category}\""
-  end
-
-  defp build_filter_clause({:date_after, timestamp}) do
-    "published_at:[#{timestamp} TO *]"
-  end
-
-  defp build_filter_clause({:rating_above, rating}) do
-    "rating:[#{rating} TO *]"
-  end
-
-  defp build_filter_clause({:tags, tags}) when is_list(tags) do
-    tag_queries = Enum.map(tags, &"tags:#{&1}")
-    "(#{Enum.join(tag_queries, " OR ")})"
-  end
-end
-
-# Usage examples:
-{:ok, results} = MyApp.FilteredSearch.search_with_filters(
-  index,
-  "elixir programming",
-  [
-    {:price_range, {10.0, 100.0}},
-    {:category, "/books/programming"},
-    {:rating_above, 4.0}
-  ],
-  20
-)
-```
-
-### Search Suggestions
-
-Implement search suggestions and autocomplete:
-
-```elixir
-defmodule MyApp.SearchSuggestions do
-  alias TantivyEx.Index
-
-  def get_suggestions(index, partial_query, limit \\ 5) do
-    # Use wildcard search for suggestions
-    suggestion_query = "#{partial_query}*"
-
-    case Index.search(index, suggestion_query, limit * 3) do
-      {:ok, results} ->
-        suggestions =
-          results
-          |> extract_suggestion_terms(partial_query)
-          |> Enum.uniq()
-          |> Enum.take(limit)
-
-        {:ok, suggestions}
-      error -> error
-    end
-  end
-
-  defp extract_suggestion_terms(results, partial_query) do
-    Enum.flat_map(results, fn doc ->
-      title_terms = extract_matching_terms(doc["title"], partial_query)
-      content_terms = extract_matching_terms(doc["content"], partial_query)
-      title_terms ++ content_terms
+    Enum.map(results, fn doc ->
+      snippet = extract_snippet(doc["content"], query, snippet_length)
+      Map.put(doc, "snippet", snippet)
     end)
   end
 
-  defp extract_matching_terms(text, partial_query) when is_binary(text) do
-    text
-    |> String.downcase()
-    |> String.split(~r/\W+/)
-    |> Enum.filter(&String.starts_with?(&1, String.downcase(partial_query)))
-    |> Enum.filter(&(String.length(&1) > String.length(partial_query)))
-  end
-  defp extract_matching_terms(_, _), do: []
-
-  def get_related_searches(index, query, limit \\ 5) do
-    # Find documents similar to the query
-    case Index.search(index, query, 20) do
-      {:ok, results} ->
-        related_terms =
-          results
-          |> extract_common_terms(query)
-          |> Enum.take(limit)
-
-        {:ok, related_terms}
-      error -> error
-    end
-  end
-
-  defp extract_common_terms(results, original_query) do
-    original_terms = String.split(String.downcase(original_query))
+  defp add_metadata(results, opts) do
+    include_score = Keyword.get(opts, :include_score, false)
+    include_position = Keyword.get(opts, :include_position, true)
 
     results
-    |> Enum.flat_map(&extract_document_terms/1)
-    |> Enum.frequencies()
-    |> Enum.reject(fn {term, _freq} -> term in original_terms end)
-    |> Enum.sort_by(fn {_term, freq} -> -freq end)
-    |> Enum.map(fn {term, _freq} -> term end)
+    |> Enum.with_index()
+    |> Enum.map(fn {doc, index} ->
+      metadata = %{}
+
+      metadata = if include_position do
+        Map.put(metadata, "position", index + 1)
+      else
+        metadata
+      end
+
+      metadata = if include_score && Map.has_key?(doc, :relevance_score) do
+        Map.put(metadata, "score", doc.relevance_score)
+      else
+        metadata
+      end
+
+      Map.put(doc, "_metadata", metadata)
+    end)
   end
 
-  defp extract_document_terms(doc) do
-    [doc["title"], doc["content"]]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.flat_map(&String.split(&1, ~r/\W+/))
-    |> Enum.map(&String.downcase/1)
-    |> Enum.filter(&(String.length(&1) > 3))
+  defp format_for_api(results) do
+    %{
+      "results" => results,
+      "count" => length(results),
+      "timestamp" => DateTime.utc_now() |> DateTime.to_iso8601()
+    }
   end
+
+  defp highlight_text(text, query, max_length) when is_binary(text) do
+    # Simple highlighting - mark query terms with <mark> tags
+    query_terms = String.split(String.downcase(query))
+
+    highlighted =
+      Enum.reduce(query_terms, text, fn term, acc ->
+        Regex.replace(
+          ~r/#{Regex.escape(term)}/i,
+          acc,
+          "<mark>\\0</mark>"
+        )
+      end)
+
+    if String.length(highlighted) > max_length do
+      String.slice(highlighted, 0, max_length) <> "..."
+    else
+      highlighted
+    end
+  end
+
+  defp highlight_text(_text, _query, _max_length), do: ""
+
+  defp extract_snippet(content, query, max_length) when is_binary(content) do
+    query_terms = String.split(String.downcase(query))
+    content_lower = String.downcase(content)
+
+    # Find the first occurrence of any query term
+    first_match_pos =
+      query_terms
+      |> Enum.map(fn term -> String.contains?(content_lower, term) && :binary.match(content_lower, term) end)
+      |> Enum.reject(&(&1 == false))
+      |> Enum.map(fn {pos, _len} -> pos end)
+      |> Enum.min(fn -> 0 end)
+
+    # Extract snippet around the match
+    start_pos = max(0, first_match_pos - div(max_length, 3))
+    snippet = String.slice(content, start_pos, max_length)
+
+    # Add ellipsis if truncated
+    snippet = if start_pos > 0, do: "..." <> snippet, else: snippet
+    snippet = if String.length(content) > start_pos + max_length, do: snippet <> "...", else: snippet
+
+    snippet
+  end
+
+  defp extract_snippet(_content, _query, _max_length), do: ""
 end
 ```
 
-### Search Analytics
+### Search Aggregations and Analytics
 
-Track and analyze search patterns:
+Implement search analytics to understand user behavior:
 
 ```elixir
 defmodule MyApp.SearchAnalytics do
+  use GenServer
+
+  def start_link(_opts) do
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  end
+
+  def track_search(query, result_count, user_id \\ nil) do
+    GenServer.cast(__MODULE__, {:track_search, query, result_count, user_id, DateTime.utc_now()})
+  end
+
+  def track_click(query, document_id, position, user_id \\ nil) do
+    GenServer.cast(__MODULE__, {:track_click, query, document_id, position, user_id, DateTime.utc_now()})
+  end
+
+  def get_search_stats(timeframe \\ :today) do
+    GenServer.call(__MODULE__, {:get_stats, timeframe})
+  end
+
+  def get_popular_queries(limit \\ 10, timeframe \\ :today) do
+    GenServer.call(__MODULE__, {:get_popular_queries, limit, timeframe})
+  end
+
+  def get_zero_result_queries(limit \\ 10, timeframe \\ :today) do
+    GenServer.call(__MODULE__, {:get_zero_result_queries, limit, timeframe})
+  end
+
+  # GenServer implementation
+  def init(state) do
+    # In production, you'd want to persist this data
+    {:ok, %{
+      searches: [],
+      clicks: []
+    }}
+  end
+
+  def handle_cast({:track_search, query, result_count, user_id, timestamp}, state) do
+    search_event = %{
+      query: query,
+      result_count: result_count,
+      user_id: user_id,
+      timestamp: timestamp
+    }
+
+    new_searches = [search_event | state.searches]
+    {:noreply, %{state | searches: new_searches}}
+  end
+
+  def handle_cast({:track_click, query, document_id, position, user_id, timestamp}, state) do
+    click_event = %{
+      query: query,
+      document_id: document_id,
+      position: position,
+      user_id: user_id,
+      timestamp: timestamp
+    }
+
+    new_clicks = [click_event | state.clicks]
+    {:noreply, %{state | clicks: new_clicks}}
+  end
+
+  def handle_call({:get_stats, timeframe}, _from, state) do
+    timeframe_start = get_timeframe_start(timeframe)
+
+    recent_searches =
+      state.searches
+      |> Enum.filter(&(DateTime.compare(&1.timestamp, timeframe_start) != :lt))
+
+    recent_clicks =
+      state.clicks
+      |> Enum.filter(&(DateTime.compare(&1.timestamp, timeframe_start) != :lt))
+
+    stats = %{
+      total_searches: length(recent_searches),
+      total_clicks: length(recent_clicks),
+      zero_result_searches: Enum.count(recent_searches, &(&1.result_count == 0)),
+      average_results: calculate_average_results(recent_searches),
+      click_through_rate: calculate_ctr(recent_searches, recent_clicks)
+    }
+
+    {:reply, stats, state}
+  end
+
+  def handle_call({:get_popular_queries, limit, timeframe}, _from, state) do
+    timeframe_start = get_timeframe_start(timeframe)
+
+    popular_queries =
+      state.searches
+      |> Enum.filter(&(DateTime.compare(&1.timestamp, timeframe_start) != :lt))
+      |> Enum.group_by(& &1.query)
+      |> Enum.map(fn {query, searches} -> {query, length(searches)} end)
+      |> Enum.sort_by(&elem(&1, 1), :desc)
+      |> Enum.take(limit)
+
+    {:reply, popular_queries, state}
+  end
+
+  def handle_call({:get_zero_result_queries, limit, timeframe}, _from, state) do
+    timeframe_start = get_timeframe_start(timeframe)
+
+    zero_result_queries =
+      state.searches
+      |> Enum.filter(&(DateTime.compare(&1.timestamp, timeframe_start) != :lt))
+      |> Enum.filter(&(&1.result_count == 0))
+      |> Enum.group_by(& &1.query)
+      |> Enum.map(fn {query, searches} -> {query, length(searches)} end)
+      |> Enum.sort_by(&elem(&1, 1), :desc)
+      |> Enum.take(limit)
+
+    {:reply, zero_result_queries, state}
+  end
+
+  defp get_timeframe_start(:today) do
+    DateTime.utc_now() |> DateTime.add(-24, :hour)
+  end
+
+  defp get_timeframe_start(:week) do
+    DateTime.utc_now() |> DateTime.add(-7, :day)
+  end
+
+  defp get_timeframe_start(:month) do
+    DateTime.utc_now() |> DateTime.add(-30, :day)
+  end
+
+  defp calculate_average_results([]), do: 0.0
+  defp calculate_average_results(searches) do
+    total_results = Enum.sum(Enum.map(searches, & &1.result_count))
+    total_results / length(searches)
+  end
+
+  defp calculate_ctr([], _clicks), do: 0.0
+  defp calculate_ctr(searches, clicks) do
+    search_queries = MapSet.new(searches, & &1.query)
+    relevant_clicks = Enum.filter(clicks, &MapSet.member?(search_queries, &1.query))
+
+    if length(searches) > 0 do
+      length(relevant_clicks) / length(searches)
+    else
+      0.0
+    end
+  end
+end
+```
+
+### Multi-Field Search Strategies
+
+Implement sophisticated multi-field search with field boosting:
+
+```elixir
+defmodule MyApp.MultiFieldSearch do
+  alias TantivyEx.{Index, Query}
+
+  def search_with_field_boosting(index, query_string, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
+
+    # Define field weights
+    field_weights = %{
+      "title" => 3.0,
+      "description" => 2.0,
+      "content" => 1.0,
+      "tags" => 1.5
+    }
+
+    # Build complex query
+    {:ok, parser} = Query.parser(index, Map.keys(field_weights))
+    {:ok, bool_query} = Query.boolean(parser)
+
+    # Add weighted queries for each field
+    bool_query =
+      Enum.reduce(field_weights, bool_query, fn {field, weight}, acc_query ->
+        field_query_string = "#{field}:(#{query_string})^#{weight}"
+
+        case Query.parse(parser, field_query_string) do
+          {:ok, field_query} ->
+            {:ok, updated_query} = Query.add_should(acc_query, field_query)
+            updated_query
+          {:error, _} ->
+            acc_query
+        end
+      end)
+
+    # Execute search
+    case Index.search_with_query(index, bool_query, limit) do
+      {:ok, results} -> {:ok, results}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def search_with_fallbacks(index, query_string, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
+
+    # Try exact phrase search first
+    case exact_phrase_search(index, query_string, limit) do
+      {:ok, results} when length(results) > 0 ->
+        {:ok, %{results: results, strategy: "exact_phrase"}}
+
+      _ ->
+        # Fall back to AND search
+        case and_search(index, query_string, limit) do
+          {:ok, results} when length(results) > 0 ->
+            {:ok, %{results: results, strategy: "and_search"}}
+
+          _ ->
+            # Fall back to OR search
+            case or_search(index, query_string, limit) do
+              {:ok, results} when length(results) > 0 ->
+                {:ok, %{results: results, strategy: "or_search"}}
+
+              _ ->
+                # Final fallback to fuzzy search
+                case fuzzy_search(index, query_string, limit) do
+                  {:ok, results} ->
+                    {:ok, %{results: results, strategy: "fuzzy_search"}}
+
+                  error ->
+                    error
+                end
+            end
+        end
+    end
+  end
+
+  defp exact_phrase_search(index, query_string, limit) do
+    Index.search(index, "\"#{query_string}\"", limit)
+  end
+
+  defp and_search(index, query_string, limit) do
+    terms = String.split(query_string)
+    and_query = Enum.join(terms, " AND ")
+    Index.search(index, and_query, limit)
+  end
+
+  defp or_search(index, query_string, limit) do
+    terms = String.split(query_string)
+    or_query = Enum.join(terms, " OR ")
+    Index.search(index, or_query, limit)
+  end
+
+  defp fuzzy_search(index, query_string, limit) do
+    terms = String.split(query_string)
+    fuzzy_terms = Enum.map(terms, &(&1 <> "~"))
+    fuzzy_query = Enum.join(fuzzy_terms, " OR ")
+    Index.search(index, fuzzy_query, limit)
+  end
+end
+```
+
+### Search Filters and Faceting
+
+Implement advanced filtering and faceted search:
+
+```elixir
+defmodule MyApp.FacetedSearch do
   alias TantivyEx.Index
 
-  def search_with_analytics(index, query, user_id, limit \\ 10) do
-    start_time = System.monotonic_time(:millisecond)
+  def search_with_filters(index, query_string, filters \\ %{}, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
 
-    result = Index.search(index, query, limit)
+    # Build the base query
+    base_query = if String.trim(query_string) == "" do
+      "*"  # Match all if no search terms
+    else
+      query_string
+    end
 
-    end_time = System.monotonic_time(:millisecond)
-    search_time = end_time - start_time
+    # Add filters to the query
+    filtered_query = apply_filters(base_query, filters)
 
-    # Log search analytics
-    log_search_event(query, user_id, result, search_time)
+    case Index.search(index, filtered_query, limit) do
+      {:ok, results} ->
+        # Generate facets for the current result set
+        facets = generate_facets(results)
+        {:ok, %{results: results, facets: facets}}
 
-    result
+      error -> error
+    end
   end
 
-  defp log_search_event(query, user_id, result, search_time) do
-    event = %{
-      query: query,
-      user_id: user_id,
-      timestamp: System.system_time(:second),
-      search_time_ms: search_time,
-      result_count: case result do
-        {:ok, results} -> length(results)
-        {:error, _} -> 0
-      end,
-      success: match(result, {:ok, _})
-    }
-
-    # Store analytics (could be database, file, external service)
-    store_analytics_event(event)
+  defp apply_filters(base_query, filters) when map_size(filters) == 0 do
+    base_query
   end
 
-  defp store_analytics_event(event) do
-    # Example: Log to file
-    log_file = "search_analytics.log"
-    log_entry = Jason.encode!(event) <> "\n"
-    File.write!(log_file, log_entry, [:append])
+  defp apply_filters(base_query, filters) do
+    filter_clauses =
+      filters
+      |> Enum.map(&build_filter_clause/1)
+      |> Enum.reject(&is_nil/1)
+
+    if length(filter_clauses) > 0 do
+      filter_string = Enum.join(filter_clauses, " AND ")
+      "(#{base_query}) AND (#{filter_string})"
+    else
+      base_query
+    end
   end
 
-  def analyze_search_patterns(analytics_file) do
-    analytics_file
-    |> File.stream!()
-    |> Stream.map(&Jason.decode!/1)
-    |> Enum.reduce(%{}, &accumulate_analytics/2)
-    |> generate_analytics_report()
+  defp build_filter_clause({"price_range", %{"min" => min, "max" => max}}) do
+    "price:[#{min} TO #{max}]"
   end
 
-  defp accumulate_analytics(event, acc) do
-    acc
-    |> Map.update(:total_searches, 1, &(&1 + 1))
-    |> Map.update(:unique_queries, MapSet.new([event["query"]]), &MapSet.put(&1, event["query"]))
-    |> Map.update(:avg_search_time, [event["search_time_ms"]], &[event["search_time_ms"] | &1])
-    |> Map.update(:query_frequency, %{}, &Map.update(&1, event["query"], 1, fn x -> x + 1 end))
+  defp build_filter_clause({"category", categories}) when is_list(categories) do
+    category_clauses = Enum.map(categories, &"category:\"#{&1}\"")
+    "(#{Enum.join(category_clauses, " OR ")})"
   end
 
-  defp generate_analytics_report(analytics) do
-    search_times = analytics[:avg_search_time] || []
-    avg_time = if length(search_times) > 0, do: Enum.sum(search_times) / length(search_times), else: 0
+  defp build_filter_clause({"category", category}) when is_binary(category) do
+    "category:\"#{category}\""
+  end
 
+  defp build_filter_clause({"date_range", %{"start" => start_date, "end" => end_date}}) do
+    start_timestamp = date_to_timestamp(start_date)
+    end_timestamp = date_to_timestamp(end_date)
+    "published_at:[#{start_timestamp} TO #{end_timestamp}]"
+  end
+
+  defp build_filter_clause({"rating_min", min_rating}) do
+    "rating:[#{min_rating} TO *]"
+  end
+
+  defp build_filter_clause({"in_stock", true}) do
+    "stock:[1 TO *]"
+  end
+
+  defp build_filter_clause({"in_stock", false}) do
+    "stock:0"
+  end
+
+  defp build_filter_clause({field, value}) when is_binary(value) do
+    "#{field}:\"#{value}\""
+  end
+
+  defp build_filter_clause(_), do: nil
+
+  defp generate_facets(results) do
     %{
-      total_searches: analytics[:total_searches] || 0,
-      unique_queries: MapSet.size(analytics[:unique_queries] || MapSet.new()),
-      average_search_time_ms: avg_time,
-      popular_queries:
-        analytics[:query_frequency]
-        |> Enum.sort_by(fn {_query, freq} -> -freq end)
-        |> Enum.take(10)
+      "categories" => generate_category_facets(results),
+      "price_ranges" => generate_price_facets(results),
+      "ratings" => generate_rating_facets(results),
+      "availability" => generate_availability_facets(results)
     }
+  end
+
+  defp generate_category_facets(results) do
+    results
+    |> Enum.map(& &1["category"])
+    |> Enum.reject(&is_nil/1)
+    |> Enum.frequencies()
+    |> Enum.sort_by(&elem(&1, 1), :desc)
+  end
+
+  defp generate_price_facets(results) do
+    price_ranges = [
+      {"Under $25", 0, 25},
+      {"$25 - $50", 25, 50},
+      {"$50 - $100", 50, 100},
+      {"$100 - $200", 100, 200},
+      {"Over $200", 200, :infinity}
+    ]
+
+    prices = Enum.map(results, & &1["price"]) |> Enum.reject(&is_nil/1)
+
+    Enum.map(price_ranges, fn {label, min, max} ->
+      count =
+        if max == :infinity do
+          Enum.count(prices, &(&1 >= min))
+        else
+          Enum.count(prices, &(&1 >= min and &1 < max))
+        end
+
+      {label, count}
+    end)
+  end
+
+  defp generate_rating_facets(results) do
+    [5, 4, 3, 2, 1]
+    |> Enum.map(fn rating ->
+      count = Enum.count(results, fn result ->
+        case result["rating"] do
+          nil -> false
+          r when is_number(r) -> r >= rating and r < rating + 1
+          _ -> false
+        end
+      end)
+
+      {"#{rating} stars & up", count}
+    end)
+  end
+
+  defp generate_availability_facets(results) do
+    in_stock_count = Enum.count(results, fn result ->
+      case result["stock"] do
+        nil -> false
+        stock when is_number(stock) -> stock > 0
+        _ -> false
+      end
+    end)
+
+    out_of_stock_count = length(results) - in_stock_count
+
+    [
+      {"In Stock", in_stock_count},
+      {"Out of Stock", out_of_stock_count}
+    ]
+  end
+
+  defp date_to_timestamp(date_string) do
+    case Date.from_iso8601(date_string) do
+      {:ok, date} ->
+        date
+        |> DateTime.new!(~T[00:00:00])
+        |> DateTime.to_unix()
+
+      {:error, _} -> 0
+    end
   end
 end
 ```

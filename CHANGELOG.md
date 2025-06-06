@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Documentation Enhancements
+
+- **Comprehensive guides index** - Created extensive `docs/guides.md` with installation, quick start, core concepts, and integration patterns
+- **Enhanced schema documentation** - Deep dive into field options, common pitfalls, and real-world examples for e-commerce, document management, and social media analytics
+- **Advanced indexing patterns** - Concurrent indexing with workers, multi-index management, error handling with dead letter queues, and production-ready indexing service
+- **Extensive search guide** - Multi-field search strategies, faceting, analytics, query optimization, and advanced search patterns
+- **Complete tokenizers guide** - Language-specific tokenization, performance considerations, troubleshooting, and real-world examples
+
+#### Core Features & Fixes
+
+- **Query module implementation** - Added comprehensive `Query` module for programmatic query building with support for term, phrase, range, boolean, and fuzzy queries
+- **Fixed query parser function signature** - Updated to accept `Index` instead of `Schema` to match Rust NIF expectations
+- **Enhanced field option support** - Added `:fast` and `:fast_stored` atom mappings for improved field configuration
+- **Empty query string validation** - Added proper validation in Rust NIF to prevent empty query parsing errors
+- **Consistent field options** - Standardized schema field options throughout codebase for better reliability
+
+#### Test Improvements
+
+- **Comprehensive test coverage** - Added `tantivy_ex_query_parser_test.exs` and `tantivy_ex_query_types_test.exs` for query functionality
+- **Fixed field option inconsistencies** - Updated all tests to use consistent `:fast_stored` notation
+- **All tests passing** - Resolved 93 tests with 0 failures, ensuring codebase stability
+
+#### Performance & Reliability
+
+- **Position indexing fixes** - Ensured proper `FAST_STORED` configuration for phrase query support
+- **Error handling improvements** - Enhanced error messages and validation throughout the codebase
+- **Production best practices** - Added comprehensive examples for batch indexing, concurrent operations, and monitoring
+
 ## [0.1.0] - 2024-01-XX
 
 ### Added
@@ -22,9 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Field Types Support
 
 - **Text fields** with indexing options:
-  - `:TEXT` - Indexed for search only
-  - `:TEXT_STORED` - Indexed and stored (retrievable)
-  - `:STORED` - Stored only (not searchable)
+  - `:text` - Indexed for search only
+  - `:text_stored` - Indexed and stored (retrievable)
+  - `:stored` - Stored only (not searchable)
 - **Numeric fields** with full range query support:
   - `U64` - Unsigned 64-bit integers
   - `I64` - Signed 64-bit integers

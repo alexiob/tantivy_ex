@@ -61,9 +61,7 @@ defmodule TantivyEx.IndexWriter do
   """
   @spec add_document(t(), map()) :: :ok | {:error, String.t()}
   def add_document(writer, document) when is_map(document) do
-    json_doc = Jason.encode!(document)
-
-    case Native.writer_add_document(writer, json_doc) do
+    case Native.writer_add_document(writer, document) do
       :ok -> :ok
       {:error, reason} -> {:error, reason}
       # Temporary handling

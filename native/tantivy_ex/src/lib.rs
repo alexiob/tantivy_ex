@@ -1,15 +1,22 @@
+use base64;
+use base64::{engine::general_purpose, Engine as _};
 use rustler::{Encoder, Env, NifResult, ResourceArc, Term};
 use serde_json;
+use std::collections::HashMap;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tantivy::collector::TopDocs;
-use tantivy::query::AllQuery;
+use tantivy::query::Occur;
+use tantivy::query::{
+    AllQuery, BooleanQuery, EmptyQuery, ExistsQuery, FuzzyTermQuery, MoreLikeThisQuery,
+    PhrasePrefixQuery, PhraseQuery, QueryParser, RangeQuery, RegexQuery, TermQuery,
+};
 use tantivy::schema::{
     BytesOptions, DateOptions, FacetOptions, Field, FieldType, IpAddrOptions, JsonObjectOptions,
-    NumericOptions, Schema, TextFieldIndexing, TextOptions,
+    NumericOptions, OwnedValue, Schema, TextFieldIndexing, TextOptions, Value,
 };
-use tantivy::{Index, IndexWriter, TantivyDocument};
+use tantivy::{Index, IndexWriter, TantivyDocument, Term as TantivyTerm};
 
 // Resource types for managing state
 pub struct IndexResource {
@@ -34,11 +41,29 @@ pub struct SearcherResource {
     pub searcher: Arc<tantivy::Searcher>,
 }
 
+pub struct QueryResource {
+    pub query: Box<dyn tantivy::query::Query>,
+}
+
+pub struct QueryParserResource {
+    pub parser: QueryParser,
+}
+
 // Make SearcherResource safe for unwind
 unsafe impl Send for SearcherResource {}
 unsafe impl Sync for SearcherResource {}
 impl RefUnwindSafe for SearcherResource {}
 impl UnwindSafe for SearcherResource {}
+
+unsafe impl Send for QueryResource {}
+unsafe impl Sync for QueryResource {}
+impl RefUnwindSafe for QueryResource {}
+impl UnwindSafe for QueryResource {}
+
+unsafe impl Send for QueryParserResource {}
+unsafe impl Sync for QueryParserResource {}
+impl RefUnwindSafe for QueryParserResource {}
+impl UnwindSafe for QueryParserResource {}
 
 mod atoms {
     rustler::atoms! {
@@ -60,6 +85,8 @@ fn load(env: rustler::Env, _: rustler::Term) -> bool {
     let _ = rustler::resource!(IndexResource, env);
     let _ = rustler::resource!(IndexWriterResource, env);
     let _ = rustler::resource!(SearcherResource, env);
+    let _ = rustler::resource!(QueryResource, env);
+    let _ = rustler::resource!(QueryParserResource, env);
     true
 }
 
@@ -86,6 +113,16 @@ fn schema_add_text_field(
             .set_stored(),
         "TEXT" => TextOptions::default().set_indexing_options(TextFieldIndexing::default()),
         "STORED" => TextOptions::default().set_stored(),
+        "FAST" => TextOptions::default()
+            .set_indexing_options(TextFieldIndexing::default())
+            .set_fast(None),
+        "FAST_STORED" => TextOptions::default()
+            .set_indexing_options(
+                TextFieldIndexing::default()
+                    .set_index_option(tantivy::schema::IndexRecordOption::WithFreqsAndPositions),
+            )
+            .set_stored()
+            .set_fast(None),
         _ => TextOptions::default().set_indexing_options(TextFieldIndexing::default()),
     };
 
@@ -435,19 +472,41 @@ fn index_writer(
 fn writer_add_document<'a>(
     env: Env<'a>,
     writer_res: ResourceArc<IndexWriterResource>,
-    document_json: String,
+    document: rustler::Term<'a>,
 ) -> NifResult<Term<'a>> {
-    let doc_data: serde_json::Value = match serde_json::from_str(&document_json) {
-        Ok(data) => data,
-        Err(e) => {
-            return Err(rustler::Error::Term(Box::new(format!(
-                "JSON parse error: {}",
-                e
-            ))))
+    // Convert Elixir map to a HashMap first
+    let doc_map: HashMap<String, rustler::Term> = match document.decode() {
+        Ok(map) => map,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(
+                "Failed to decode document map: Expected a map".to_string(),
+            )))
         }
     };
 
-    let mut writer = writer_res.writer.lock().unwrap();
+    // Convert the HashMap to a serde_json::Value
+    let mut doc_object = serde_json::Map::new();
+    for (key, value) in doc_map {
+        if let Ok(string_val) = value.decode::<String>() {
+            doc_object.insert(key, serde_json::Value::String(string_val));
+        } else if let Ok(int_val) = value.decode::<i64>() {
+            doc_object.insert(
+                key,
+                serde_json::Value::Number(serde_json::Number::from(int_val)),
+            );
+        } else if let Ok(float_val) = value.decode::<f64>() {
+            if let Some(num) = serde_json::Number::from_f64(float_val) {
+                doc_object.insert(key, serde_json::Value::Number(num));
+            }
+        } else if let Ok(bool_val) = value.decode::<bool>() {
+            doc_object.insert(key, serde_json::Value::Bool(bool_val));
+        }
+        // Add more types as needed
+    }
+
+    let doc_data = serde_json::Value::Object(doc_object);
+
+    let writer = writer_res.writer.lock().unwrap();
 
     // Create a document from the JSON data
     let mut tantivy_doc = TantivyDocument::default();
@@ -539,6 +598,656 @@ fn searcher_search(
                 }
             }
             Ok(format!("[{}]", results.join(",")))
+        }
+        Err(e) => Err(rustler::Error::Term(Box::new(format!(
+            "Search failed: {}",
+            e
+        )))),
+    }
+}
+
+// COMPREHENSIVE QUERY SYSTEM
+
+// Query Parser Functions
+#[rustler::nif]
+fn query_parser_new(
+    index_res: ResourceArc<IndexResource>,
+    default_fields: Vec<String>,
+) -> NifResult<ResourceArc<QueryParserResource>> {
+    // Need at least one default field
+    if default_fields.is_empty() {
+        return Err(rustler::Error::Term(Box::new(
+            "At least one default field is required for query parser",
+        )));
+    }
+
+    // Convert field names to Field objects
+    let mut fields = Vec::new();
+    for field_name in default_fields {
+        if let Ok(field) = index_res.index.schema().get_field(&field_name) {
+            fields.push(field);
+        } else {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found in schema",
+                field_name
+            ))));
+        }
+    }
+
+    // If we couldn't find any of the fields, return error
+    if fields.is_empty() {
+        return Err(rustler::Error::Term(Box::new(
+            "None of the specified fields were found in schema",
+        )));
+    }
+
+    // Create the parser using fields we found
+    let parser = QueryParser::for_index(&*index_res.index, fields);
+    Ok(ResourceArc::new(QueryParserResource { parser }))
+}
+
+#[rustler::nif]
+fn query_parser_parse(
+    parser_res: ResourceArc<QueryParserResource>,
+    query_str: String,
+) -> NifResult<ResourceArc<QueryResource>> {
+    // Check if query string is empty
+    if query_str.trim().is_empty() {
+        return Err(rustler::Error::Term(Box::new(
+            "Query string cannot be empty",
+        )));
+    }
+
+    match parser_res.parser.parse_query(&query_str) {
+        Ok(query) => Ok(ResourceArc::new(QueryResource { query })),
+        Err(e) => Err(rustler::Error::Term(Box::new(format!(
+            "Failed to parse query: {}",
+            e
+        )))),
+    }
+}
+
+// Term Query
+#[rustler::nif]
+fn query_term(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    term_value: String,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let term = TantivyTerm::from_field_text(field, &term_value);
+    let query = TermQuery::new(term, tantivy::schema::IndexRecordOption::Basic);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Phrase Query
+#[rustler::nif]
+fn query_phrase(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    phrase_terms: Vec<String>,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let terms: Vec<TantivyTerm> = phrase_terms
+        .into_iter()
+        .map(|term_str| TantivyTerm::from_field_text(field, &term_str))
+        .collect();
+
+    let query = PhraseQuery::new(terms);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Range Query for numeric fields
+#[rustler::nif]
+fn query_range_u64(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    start: Option<u64>,
+    end: Option<u64>,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let start_term = match start {
+        Some(val) => std::ops::Bound::Included(TantivyTerm::from_field_u64(field, val)),
+        None => std::ops::Bound::Unbounded,
+    };
+
+    let end_term = match end {
+        Some(val) => std::ops::Bound::Included(TantivyTerm::from_field_u64(field, val)),
+        None => std::ops::Bound::Unbounded,
+    };
+
+    let query = RangeQuery::new(start_term, end_term);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Range Query for i64 fields
+#[rustler::nif]
+fn query_range_i64(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    start: Option<i64>,
+    end: Option<i64>,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let start_term = match start {
+        Some(val) => std::ops::Bound::Included(TantivyTerm::from_field_i64(field, val)),
+        None => std::ops::Bound::Unbounded,
+    };
+
+    let end_term = match end {
+        Some(val) => std::ops::Bound::Included(TantivyTerm::from_field_i64(field, val)),
+        None => std::ops::Bound::Unbounded,
+    };
+
+    let query = RangeQuery::new(start_term, end_term);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Range Query for f64 fields
+#[rustler::nif]
+fn query_range_f64(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    start: Option<f64>,
+    end: Option<f64>,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let start_term = match start {
+        Some(val) => std::ops::Bound::Included(TantivyTerm::from_field_f64(field, val)),
+        None => std::ops::Bound::Unbounded,
+    };
+
+    let end_term = match end {
+        Some(val) => std::ops::Bound::Included(TantivyTerm::from_field_f64(field, val)),
+        None => std::ops::Bound::Unbounded,
+    };
+
+    let query = RangeQuery::new(start_term, end_term);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Boolean Query
+#[rustler::nif]
+fn query_boolean(
+    must_queries: Vec<ResourceArc<QueryResource>>,
+    should_queries: Vec<ResourceArc<QueryResource>>,
+    must_not_queries: Vec<ResourceArc<QueryResource>>,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let mut clauses = Vec::new();
+
+    // Add MUST clauses (AND)
+    for query_res in must_queries {
+        clauses.push((Occur::Must, query_res.query.box_clone()));
+    }
+
+    // Add SHOULD clauses (OR)
+    for query_res in should_queries {
+        clauses.push((Occur::Should, query_res.query.box_clone()));
+    }
+
+    // Add MUST NOT clauses (NOT)
+    for query_res in must_not_queries {
+        clauses.push((Occur::MustNot, query_res.query.box_clone()));
+    }
+
+    let boolean_query = BooleanQuery::new(clauses);
+
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(boolean_query),
+    }))
+}
+
+// Fuzzy Query
+#[rustler::nif]
+fn query_fuzzy(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    term_value: String,
+    distance: u8,
+    prefix: bool,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let term = TantivyTerm::from_field_text(field, &term_value);
+    let query = FuzzyTermQuery::new(term, distance, prefix);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Regex Query
+#[rustler::nif]
+fn query_regex(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    pattern: String,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    match RegexQuery::from_pattern(&pattern, field) {
+        Ok(query) => Ok(ResourceArc::new(QueryResource {
+            query: Box::new(query),
+        })),
+        Err(e) => Err(rustler::Error::Term(Box::new(format!(
+            "Failed to create regex query: {}",
+            e
+        )))),
+    }
+}
+
+// Wildcard Query - implemented as a simple wrapper around RegexQuery
+// with a modified pattern to avoid empty match operators
+#[rustler::nif]
+fn query_wildcard(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    pattern: String,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    // Simple wildcard pattern to regex conversion
+    let mut regex_pattern = String::new();
+    for c in pattern.chars() {
+        match c {
+            '*' => regex_pattern.push_str(".*"),
+            '?' => regex_pattern.push('.'),
+            c if ['[', ']', '(', ')', '{', '}', '.', '+', '^', '$', '|'].contains(&c) => {
+                regex_pattern.push('\\');
+                regex_pattern.push(c);
+            }
+            _ => regex_pattern.push(c),
+        }
+    }
+
+    // Create a RegexQuery directly with the converted pattern
+    match RegexQuery::from_pattern(&regex_pattern, field) {
+        Ok(query) => Ok(ResourceArc::new(QueryResource {
+            query: Box::new(query),
+        })),
+        Err(e) => {
+            // Fall back to simple term query if regex fails
+            if pattern.ends_with('*')
+                && !pattern[..pattern.len() - 1].contains('*')
+                && !pattern.contains('?')
+            {
+                // Simple prefix query for patterns like "abc*"
+                let prefix = &pattern[..pattern.len() - 1];
+                let term_query = TermQuery::new(
+                    TantivyTerm::from_field_text(field, prefix),
+                    tantivy::schema::IndexRecordOption::WithFreqs,
+                );
+                Ok(ResourceArc::new(QueryResource {
+                    query: Box::new(term_query),
+                }))
+            } else {
+                Err(rustler::Error::Term(Box::new(format!(
+                    "Failed to create wildcard query: {}",
+                    e
+                ))))
+            }
+        }
+    }
+}
+
+// Phrase Prefix Query
+#[rustler::nif]
+fn query_phrase_prefix(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    phrase_terms: Vec<String>,
+    max_expansions: u32,
+) -> NifResult<ResourceArc<QueryResource>> {
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found",
+                field_name
+            ))))
+        }
+    };
+
+    let terms: Vec<TantivyTerm> = phrase_terms
+        .into_iter()
+        .map(|term_str| TantivyTerm::from_field_text(field, &term_str))
+        .collect();
+
+    let mut query = PhrasePrefixQuery::new(terms);
+    query.set_max_expansions(max_expansions);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Exists Query
+#[rustler::nif]
+fn query_exists(
+    _schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+) -> NifResult<ResourceArc<QueryResource>> {
+    // In tantivy 0.24.1, ExistsQuery::new takes field name and json_subpaths boolean
+    let query = ExistsQuery::new(field_name, false);
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// All Query (matches all documents)
+#[rustler::nif]
+fn query_all() -> ResourceArc<QueryResource> {
+    let query = AllQuery;
+    ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    })
+}
+
+// Empty Query (matches no documents)
+#[rustler::nif]
+fn query_empty() -> ResourceArc<QueryResource> {
+    let query = EmptyQuery;
+    ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    })
+}
+
+// More Like This Query with proper tantivy 0.24.1 implementation
+#[rustler::nif]
+fn query_more_like_this(
+    schema_res: ResourceArc<SchemaResource>,
+    doc_json: String,
+    min_doc_frequency: Option<u64>,
+    max_doc_frequency: Option<u64>,
+    min_term_frequency: Option<usize>,
+    max_query_terms: Option<usize>,
+    min_word_length: Option<usize>,
+    max_word_length: Option<usize>,
+    boost_factor: Option<f32>,
+) -> NifResult<ResourceArc<QueryResource>> {
+    // Parse the document JSON to extract field values
+    let doc_data: serde_json::Value = match serde_json::from_str(&doc_json) {
+        Ok(data) => data,
+        Err(e) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "JSON parse error: {}",
+                e
+            ))))
+        }
+    };
+
+    // Extract field values from the JSON document
+    let mut doc_fields = Vec::new();
+    if let serde_json::Value::Object(obj) = doc_data {
+        for (field_name, value) in obj {
+            // Get the Field from schema
+            if let Ok(field) = schema_res.schema.get_field(&field_name) {
+                let mut field_values = Vec::new();
+
+                // Convert JSON value to tantivy OwnedValue
+                match value {
+                    serde_json::Value::String(s) => {
+                        field_values.push(tantivy::schema::OwnedValue::Str(s));
+                    }
+                    serde_json::Value::Number(n) => {
+                        if let Some(i) = n.as_u64() {
+                            field_values.push(tantivy::schema::OwnedValue::U64(i));
+                        } else if let Some(i) = n.as_i64() {
+                            field_values.push(tantivy::schema::OwnedValue::I64(i));
+                        } else if let Some(f) = n.as_f64() {
+                            field_values.push(tantivy::schema::OwnedValue::F64(f));
+                        }
+                    }
+                    serde_json::Value::Bool(b) => {
+                        field_values.push(tantivy::schema::OwnedValue::Bool(b));
+                    }
+                    serde_json::Value::Array(arr) => {
+                        // Handle arrays by adding each element
+                        for item in arr {
+                            match item {
+                                serde_json::Value::String(s) => {
+                                    field_values.push(tantivy::schema::OwnedValue::Str(s));
+                                }
+                                _ => {} // Skip non-string array elements for now
+                            }
+                        }
+                    }
+                    _ => {} // Skip other types for now
+                }
+
+                if !field_values.is_empty() {
+                    doc_fields.push((field, field_values));
+                }
+            }
+        }
+    }
+
+    if doc_fields.is_empty() {
+        return Err(rustler::Error::Term(Box::new(
+            "No valid field values found in document for MoreLikeThisQuery".to_string(),
+        )));
+    }
+
+    // Build the MoreLikeThisQuery using the new 0.24.1 API
+    let mut builder = MoreLikeThisQuery::builder();
+
+    // Set optional parameters
+    if let Some(min_doc_freq) = min_doc_frequency {
+        builder = builder.with_min_doc_frequency(min_doc_freq);
+    }
+
+    if let Some(max_doc_freq) = max_doc_frequency {
+        builder = builder.with_max_doc_frequency(max_doc_freq);
+    }
+
+    if let Some(min_term_freq) = min_term_frequency {
+        builder = builder.with_min_term_frequency(min_term_freq);
+    }
+
+    if let Some(max_query_terms) = max_query_terms {
+        builder = builder.with_max_query_terms(max_query_terms);
+    }
+
+    if let Some(min_word_len) = min_word_length {
+        builder = builder.with_min_word_length(min_word_len);
+    }
+
+    if let Some(max_word_len) = max_word_length {
+        builder = builder.with_max_word_length(max_word_len);
+    }
+
+    if let Some(boost) = boost_factor {
+        builder = builder.with_boost_factor(boost);
+    }
+
+    // Create the query with document fields
+    let query = builder.with_document_fields(doc_fields);
+
+    Ok(ResourceArc::new(QueryResource {
+        query: Box::new(query),
+    }))
+}
+
+// Enhanced Search with Query Resource
+#[rustler::nif]
+fn searcher_search_with_query(
+    searcher_res: ResourceArc<SearcherResource>,
+    query_res: ResourceArc<QueryResource>,
+    limit: u64,
+    include_docs: bool,
+) -> NifResult<String> {
+    match searcher_res
+        .searcher
+        .search(&*query_res.query, &TopDocs::with_limit(limit as usize))
+    {
+        Ok(top_docs) => {
+            let mut results = Vec::new();
+            for (score, doc_address) in top_docs {
+                if include_docs {
+                    if let Ok(doc) = searcher_res.searcher.doc::<TantivyDocument>(doc_address) {
+                        // Convert document to JSON representation
+                        let mut doc_map = serde_json::Map::new();
+                        doc_map.insert(
+                            "score".to_string(),
+                            serde_json::Value::Number(
+                                serde_json::Number::from_f64(score as f64)
+                                    .unwrap_or(serde_json::Number::from(0)),
+                            ),
+                        );
+                        doc_map.insert(
+                            "doc_id".to_string(),
+                            serde_json::Value::Number(serde_json::Number::from(
+                                doc_address.doc_id as u64,
+                            )),
+                        );
+
+                        // Add document fields
+                        for (field, value) in doc.field_values() {
+                            let field_name = searcher_res.searcher.schema().get_field_name(field);
+                            let json_value = if let Some(s) = value.as_str() {
+                                serde_json::Value::String(s.to_string())
+                            } else if let Some(n) = value.as_u64() {
+                                serde_json::Value::Number(serde_json::Number::from(n))
+                            } else if let Some(n) = value.as_i64() {
+                                serde_json::Value::Number(serde_json::Number::from(n))
+                            } else if let Some(n) = value.as_f64() {
+                                serde_json::Value::Number(
+                                    serde_json::Number::from_f64(n)
+                                        .unwrap_or(serde_json::Number::from(0)),
+                                )
+                            } else if let Some(b) = value.as_bool() {
+                                serde_json::Value::Bool(b)
+                            } else if let Some(d) = value.as_datetime() {
+                                serde_json::Value::String(format!("{:?}", d))
+                            } else if let Some(f) = value.as_facet() {
+                                serde_json::Value::String(f.to_string())
+                            } else if let Some(b) = value.as_bytes() {
+                                serde_json::Value::String(general_purpose::STANDARD.encode(b))
+                            } else if let Some(obj_iter) = value.as_object() {
+                                // Convert object iterator to JSON value
+                                let mut json_obj = serde_json::Map::new();
+                                for (key, val) in obj_iter {
+                                    // For now, just convert to string - could be enhanced later
+                                    json_obj.insert(
+                                        key.to_string(),
+                                        serde_json::Value::String(format!("{:?}", val)),
+                                    );
+                                }
+                                serde_json::Value::Object(json_obj)
+                            } else if let Some(ip) = value.as_ip_addr() {
+                                serde_json::Value::String(ip.to_string())
+                            } else {
+                                serde_json::Value::Null
+                            };
+                            doc_map.insert(field_name.to_string(), json_value);
+                        }
+
+                        results.push(serde_json::Value::Object(doc_map));
+                    }
+                } else {
+                    // Just return score and doc_id
+                    let mut doc_map = serde_json::Map::new();
+                    doc_map.insert(
+                        "score".to_string(),
+                        serde_json::Value::Number(
+                            serde_json::Number::from_f64(score as f64)
+                                .unwrap_or(serde_json::Number::from(0)),
+                        ),
+                    );
+                    doc_map.insert(
+                        "doc_id".to_string(),
+                        serde_json::Value::Number(serde_json::Number::from(
+                            doc_address.doc_id as u64,
+                        )),
+                    );
+                    results.push(serde_json::Value::Object(doc_map));
+                }
+            }
+
+            match serde_json::to_string(&results) {
+                Ok(json) => Ok(json),
+                Err(e) => Err(rustler::Error::Term(Box::new(format!(
+                    "Failed to serialize results: {}",
+                    e
+                )))),
+            }
         }
         Err(e) => Err(rustler::Error::Term(Box::new(format!(
             "Search failed: {}",

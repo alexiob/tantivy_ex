@@ -9,8 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rustler = "0.36.1"
-tantivy = "0.22"
+tantivy = "0.24.1"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.0"
 lazy_static = "1.4"
+base64 = "0.21"

@@ -64,4 +64,48 @@ defmodule TantivyEx.Native do
   # Search functions
   def index_reader(_index), do: :erlang.nif_error(:nif_not_loaded)
   def searcher_search(_searcher, _query, _limit), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Query Parser functions
+  def query_parser_new(_schema, _default_fields), do: :erlang.nif_error(:nif_not_loaded)
+  def query_parser_parse(_parser, _query_str), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Query building functions
+  def query_term(_schema, _field_name, _term_value), do: :erlang.nif_error(:nif_not_loaded)
+  def query_phrase(_schema, _field_name, _phrase_terms), do: :erlang.nif_error(:nif_not_loaded)
+  def query_range_u64(_schema, _field_name, _start, _end), do: :erlang.nif_error(:nif_not_loaded)
+  def query_range_i64(_schema, _field_name, _start, _end), do: :erlang.nif_error(:nif_not_loaded)
+  def query_range_f64(_schema, _field_name, _start, _end), do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_boolean(_must_queries, _should_queries, _must_not_queries),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_fuzzy(_schema, _field_name, _term_value, _distance, _prefix),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_wildcard(_schema, _field_name, _pattern), do: :erlang.nif_error(:nif_not_loaded)
+  def query_regex(_schema, _field_name, _pattern), do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_phrase_prefix(_schema, _field_name, _phrase_terms, _max_expansions),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_exists(_schema, _field_name), do: :erlang.nif_error(:nif_not_loaded)
+  def query_all(), do: :erlang.nif_error(:nif_not_loaded)
+  def query_empty(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_more_like_this(
+        _schema,
+        _document,
+        _min_doc_frequency,
+        _max_doc_frequency,
+        _min_term_frequency,
+        _max_query_terms,
+        _min_word_length,
+        _max_word_length,
+        _boost_factor
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  # Enhanced search function
+  def searcher_search_with_query(_searcher, _query, _limit, _include_docs),
+    do: :erlang.nif_error(:nif_not_loaded)
 end
