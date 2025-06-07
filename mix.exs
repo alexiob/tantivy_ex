@@ -35,6 +35,7 @@ defmodule TantivyEx.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:rustler_precompiled, "~> 0.4"},
       {:rustler, "~> 0.36.1"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:igniter, "~> 0.6", optional: true},

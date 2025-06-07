@@ -2,6 +2,13 @@
 
 This comprehensive guide covers text analysis, tokenization strategies, custom tokenizers, and advanced text processing techniques in TantivyEx.
 
+## Related Documentation
+
+- **[Schema Design Guide](schema.md)** - Choose the right tokenizers for your field types
+- **[Document Operations Guide](documents.md)** - Understand how tokenizers affect document indexing
+- **[Search Guide](search.md)** - Use tokenizer knowledge to write better queries
+- **[Search Results Guide](search_results.md)** - Leverage tokenization for highlighting and snippets
+
 ## Table of Contents
 
 - [Understanding Tokenizers](#understanding-tokenizers)
@@ -30,13 +37,13 @@ The tokenization process involves several critical steps:
 
 ### The Tokenization Pipeline
 
-```
+```text
 Raw Text → Segmentation → Normalization → Filtering → Stemming → Index Terms
 ```
 
 **Example transformation:**
 
-```
+```text
 "The QUICK brown foxes are running!"
 → ["The", "QUICK", "brown", "foxes", "are", "running", "!"]  # Segmentation
 → ["the", "quick", "brown", "foxes", "are", "running", "!"]  # Normalization
@@ -232,8 +239,9 @@ defmodule MyApp.TokenizerDemo do
       "keyword_field" => sample_text
     }
 
-    Index.add_document(index, document)
-    Index.commit(index)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    TantivyEx.IndexWriter.add_document(writer, document)
+    TantivyEx.IndexWriter.commit(writer)
 
     # Test different search behaviors
     test_searches(index)
@@ -265,10 +273,11 @@ defmodule MyApp.TokenizerDemo do
 
   defp test_field_searches(index, query) do
     fields = ["default_field", "simple_field", "whitespace_field", "keyword_field"]
+    searcher = TantivyEx.Searcher.new(index)
 
     Enum.each(fields, fn field ->
       field_query = "#{field}:(#{query})"
-      case Index.search(index, field_query, 1) do
+      case TantivyEx.Searcher.search(searcher, field_query, 1) do
         {:ok, results} ->
           found = length(results) > 0
           IO.puts("  #{field}: #{if found, do: "✓ Found", else: "✗ Not found"}")
@@ -464,8 +473,9 @@ defmodule MyApp.SearchStrategies do
       "#{String.slice(term, 0, -2)}*"  # Wildcard search
     ]
 
+    searcher = TantivyEx.Searcher.new(index)
     Enum.each(queries, fn query ->
-      {:ok, results} = Index.search(index, "content:(#{query})", 5)
+      {:ok, results} = TantivyEx.Searcher.search(searcher, "content:(#{query})", 5)
       IO.puts("Query '#{query}': #{length(results)} results")
     end)
   end
@@ -473,21 +483,31 @@ defmodule MyApp.SearchStrategies do
   defp exact_code_search(index, code) do
     # Best with simple tokenizer for technical identifiers
     query = "sku:(#{code})"
-    {:ok, results} = Index.search(index, query, 10)
+    searcher = TantivyEx.Searcher.new(index)
+    {:ok, results} = TantivyEx.Searcher.search(searcher, query, 10)
     IO.puts("Exact code search: #{length(results)} results")
+
+  defp fuzzy_search_example(index, term) do
+    # Works well with "default" tokenizer
+    query = "content:(#{term}~)"
+    searcher = TantivyEx.Searcher.new(index)
+    {:ok, results} = TantivyEx.Searcher.search(searcher, query, 10)
+    IO.puts("Fuzzy search: #{length(results)} results")
   end
 
   defp tag_search(index, tag) do
     # Whitespace tokenizer preserves individual tags
     query = "tags:(#{tag})"
-    {:ok, results} = Index.search(index, query, 10)
+    searcher = TantivyEx.Searcher.new(index)
+    {:ok, results} = TantivyEx.Searcher.search(searcher, query, 10)
     IO.puts("Tag search: #{length(results)} results")
   end
 
   defp status_filter(index, status) do
     # Keyword tokenizer for exact status matching
     query = "status:(\"#{status}\")"
-    {:ok, results} = Index.search(index, query, 10)
+    searcher = TantivyEx.Searcher.new(index)
+    {:ok, results} = TantivyEx.Searcher.search(searcher, query, 10)
     IO.puts("Status filter: #{length(results)} results")
   end
 end
@@ -523,33 +543,38 @@ defmodule MyApp.MultilingualTokenizer do
   end
 
   def index_multilingual_document(index, content, language) do
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+
     case language do
       "en" ->
         document = %{
           "content_en" => content,
           "content_raw" => content
         }
-        Index.add_document(index, document)
+        TantivyEx.IndexWriter.add_document(writer, document)
 
       "es" ->
         document = %{
           "content_es" => content,
           "content_raw" => content
         }
-        Index.add_document(index, document)
+        TantivyEx.IndexWriter.add_document(writer, document)
 
       _ ->
         document = %{"content_raw" => content}
-        Index.add_document(index, document)
+        TantivyEx.IndexWriter.add_document(writer, document)
     end
+
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   def search_multilingual(index, query, language \\ nil) do
+    searcher = TantivyEx.Searcher.new(index)
     case language do
-      "en" -> Index.search(index, "content_en:(#{query})", 10)
-      "es" -> Index.search(index, "content_es:(#{query})", 10)
-      nil -> Index.search(index, "content_raw:(#{query})", 10)
-      _ -> Index.search(index, "content_raw:(#{query})", 10)
+      "en" -> TantivyEx.Searcher.search(searcher, "content_en:(#{query})", 10)
+      "es" -> TantivyEx.Searcher.search(searcher, "content_es:(#{query})", 10)
+      nil -> TantivyEx.Searcher.search(searcher, "content_raw:(#{query})", 10)
+      _ -> TantivyEx.Searcher.search(searcher, "content_raw:(#{query})", 10)
     end
   end
 end
@@ -593,7 +618,9 @@ defmodule MyApp.CJKTokenizer do
       "content_original" => content
     }
 
-    Index.add_document(index, document)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    TantivyEx.IndexWriter.add_document(writer, document)
+    TantivyEx.IndexWriter.commit(writer)
   end
 end
 ```
@@ -625,12 +652,13 @@ defmodule MyApp.TokenizerBenchmark do
     )
 
     {:ok, index} = Index.create("/tmp/benchmark_#{tokenizer}", schema)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
     Enum.each(texts, fn text ->
-      Index.add_document(index, %{"content" => text})
+      TantivyEx.IndexWriter.add_document(writer, %{"content" => text})
     end)
 
-    Index.commit(index)
+    TantivyEx.IndexWriter.commit(writer)
   end
 end
 ```
@@ -657,15 +685,18 @@ defmodule MyApp.TokenizerMemoryOptimizer do
       Process.sleep(10)
     end)
 
-    Index.commit(index)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp process_chunk(index, documents) do
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
     Enum.each(documents, fn doc ->
       # Truncate very large fields to prevent memory issues
       truncated_doc = truncate_large_fields(doc)
-      Index.add_document(index, truncated_doc)
+      TantivyEx.IndexWriter.add_document(writer, truncated_doc)
     end)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp truncate_large_fields(document) do
@@ -715,9 +746,10 @@ defmodule MyApp.IndexSizeAnalyzer do
     )
 
     {:ok, index} = Index.create(path, schema)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
-    Enum.each(documents, &Index.add_document(index, &1))
-    Index.commit(index)
+    Enum.each(documents, &TantivyEx.IndexWriter.add_document(writer, &1))
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp calculate_index_size(path) do
@@ -775,7 +807,9 @@ defmodule MyApp.EcommerceTokenizer do
       "category" => format_category_path(product.category_path)
     }
 
-    Index.add_document(index, document)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    TantivyEx.IndexWriter.add_document(writer, document)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   def search_products(index, query, filters \\ %{}) do
@@ -790,7 +824,8 @@ defmodule MyApp.EcommerceTokenizer do
     # Add filters
     filtered_query = apply_product_filters(search_query, filters)
 
-    Index.search(index, filtered_query, 50)
+    searcher = TantivyEx.Searcher.new(index)
+    TantivyEx.Searcher.search(searcher, filtered_query, 50)
   end
 
   defp format_category_path(path_list) do
@@ -873,7 +908,9 @@ defmodule MyApp.DocumentTokenizer do
       "tags" => format_tags(doc_metadata.tags)
     }
 
-    Index.add_document(index, document)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    TantivyEx.IndexWriter.add_document(writer, document)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp process_by_file_type(content, file_type) do
@@ -1058,8 +1095,9 @@ defmodule MyApp.TokenizerDebugger do
 
     # Add document
     document = %{"test_field" => text}
-    Index.add_document(index, document)
-    Index.commit(index)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    TantivyEx.IndexWriter.add_document(writer, document)
+    TantivyEx.IndexWriter.commit(writer)
 
     # Test search behavior
     IO.puts("Original text: #{text}")
@@ -1075,8 +1113,9 @@ defmodule MyApp.TokenizerDebugger do
       String.split(text) |> List.last()  # Last word
     ]
 
+    searcher = TantivyEx.Searcher.new(index)
     Enum.each(test_searches, fn query ->
-      case Index.search(index, query, 10) do
+      case TantivyEx.Searcher.search(searcher, query, 10) do
         {:ok, results} ->
           found = length(results) > 0
           IO.puts("Query '#{query}': #{if found, do: "FOUND", else: "NOT FOUND"}")

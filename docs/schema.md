@@ -2,6 +2,13 @@
 
 This comprehensive guide covers schema design principles, field types, and best practices for building efficient search applications with TantivyEx.
 
+## Related Documentation
+
+- **[Document Operations Guide](documents.md)** - Learn how to create documents that conform to your schema
+- **[Indexing Guide](indexing.md)** - Index documents based on your schema design
+- **[Search Guide](search.md)** - Query documents using schema-aware searches
+- **[Tokenizers Guide](tokenizers.md)** - Choose the right text processing for your fields
+
 ## Table of Contents
 
 - [Understanding Schemas](#understanding-schemas)
@@ -421,12 +428,14 @@ defmodule MyApp.IndexMigration do
     # Read from old index and write to new
     old_docs = read_all_documents(old_index_path)
 
+    {:ok, writer} = TantivyEx.IndexWriter.new(new_index)
+
     Enum.each(old_docs, fn doc ->
       transformed_doc = transform_document(doc)
-      Index.add_document(new_index, transformed_doc)
+      TantivyEx.IndexWriter.add_document(writer, transformed_doc)
     end)
 
-    Index.commit(new_index)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp transform_document(old_doc) do
@@ -559,20 +568,6 @@ Understanding field options is crucial for optimal performance and functionality
 - **Functionality**: Very fast range queries, sorting
 - **Storage**: Not stored
 - **Performance**: Optimized data structure, fastest queries
-
-#### `:stored` - Storage Only
-
-- **Use case**: Display values without querying capability
-- **Functionality**: Retrieval only
-- **Storage**: Stored
-- **Performance**: No query performance impact
-
-#### `:fast_stored` - Complete Functionality
-
-- **Use case**: Fields needing both fast queries and value retrieval
-- **Functionality**: Fast queries + value retrieval
-- **Storage**: Stored with fast access
-- **Performance**: Best of both worlds, larger index
 
 ### Field Option Decision Matrix
 
@@ -738,7 +733,8 @@ defmodule EcommerceSchema do
   # Example usage
   def search_products(index, query_params) do
     query = build_search_query(query_params)
-    TantivyEx.Index.search(index, query, 50)
+    searcher = TantivyEx.Searcher.new(index)
+    TantivyEx.Searcher.search(searcher, query, 50)
   end
 
   defp build_search_query(%{

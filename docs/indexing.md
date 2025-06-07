@@ -2,6 +2,13 @@
 
 This comprehensive guide covers document indexing strategies, batch operations, performance optimization, and best practices for efficiently managing your search data with TantivyEx.
 
+## Related Documentation
+
+- **[Document Operations Guide](documents.md)** - Detailed guide to working with documents, validation, and field types
+- **[Schema Design Guide](schema.md)** - Design effective schemas for your search use case
+- **[Search Guide](search.md)** - Query your indexed data effectively
+- **[Search Results Guide](search_results.md)** - Process and enhance search results
+
 ## Table of Contents
 
 - [Understanding Indexing](#understanding-indexing)
@@ -11,9 +18,7 @@ This comprehensive guide covers document indexing strategies, batch operations, 
 - [Index Management](#index-management)
 - [Advanced Indexing Patterns](#advanced-indexing-patterns)
 - [Error Handling & Recovery](#error-handling--recovery)
-- [Monitoring & Optimization](#monitoring--optimization)
 - [Production Best Practices](#production-best-practices)
-- [Real-world Examples](#real-world-examples)
 
 ## Understanding Indexing
 
@@ -28,7 +33,7 @@ This comprehensive guide covers document indexing strategies, batch operations, 
 
 ### The Indexing Lifecycle
 
-```
+```text
 Raw Document → Validation → Analysis → Storage → Commit → Searchable
 ```
 
@@ -83,6 +88,8 @@ alias TantivyEx.{Index, Schema}
 
 ```elixir
 # Basic document addition
+{:ok, writer} = TantivyEx.IndexWriter.new(index)
+
 document = %{
   "title" => "Getting Started with Elixir",
   "content" => "Elixir is a dynamic, functional programming language...",
@@ -90,11 +97,11 @@ document = %{
   "rating" => 4.5
 }
 
-case Index.add_document(index, document) do
-  {:ok, _} ->
+case TantivyEx.IndexWriter.add_document(writer, document) do
+  :ok ->
     IO.puts("Document added successfully")
     # Remember to commit to make it searchable!
-    Index.commit(index)
+    TantivyEx.IndexWriter.commit(writer)
 
   {:error, reason} ->
     IO.puts("Failed to add document: #{inspect(reason)}")
@@ -105,15 +112,17 @@ end
 
 ```elixir
 # Documents are not searchable until committed
-{:ok, _} = Index.add_document(index, doc1)
-{:ok, _} = Index.add_document(index, doc2)
-{:ok, _} = Index.add_document(index, doc3)
+{:ok, writer} = TantivyEx.IndexWriter.new(index)
+:ok = TantivyEx.IndexWriter.add_document(writer, doc1)
+:ok = TantivyEx.IndexWriter.add_document(writer, doc2)
+:ok = TantivyEx.IndexWriter.add_document(writer, doc3)
 
 # Now make all additions searchable
-{:ok, _} = Index.commit(index)
+:ok = TantivyEx.IndexWriter.commit(writer)
 
 # You can search immediately after commit
-{:ok, results} = Index.search(index, "elixir", 10)
+{:ok, searcher} = TantivyEx.Searcher.new(index)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "elixir", 10)
 ```
 
 ### Document Updates and Deletions
@@ -295,7 +304,8 @@ defmodule MyApp.BulkIndexer do
     case result do
       {:ok, processed} ->
         # Final commit
-        {:ok, _} = Index.commit(index)
+        {:ok, writer} = TantivyEx.IndexWriter.new(index)
+        :ok = TantivyEx.IndexWriter.commit(writer)
 
         end_time = System.monotonic_time(:millisecond)
         duration = end_time - start_time
@@ -312,10 +322,11 @@ defmodule MyApp.BulkIndexer do
 
   defp process_batch(index, batch, total_processed) do
     batch_start = System.monotonic_time(:millisecond)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
     result = Enum.reduce_while(batch, {:ok, 0}, fn {doc, _index}, {:ok, count} ->
-      case Index.add_document(index, doc) do
-        {:ok, _} -> {:cont, {:ok, count + 1}}
+      case TantivyEx.IndexWriter.add_document(writer, doc) do
+        :ok -> {:cont, {:ok, count + 1}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
@@ -324,7 +335,7 @@ defmodule MyApp.BulkIndexer do
       {:ok, batch_count} ->
         # Periodic commits for large datasets
         if rem(total_processed + batch_count, @commit_interval) == 0 do
-          Index.commit(index)
+          TantivyEx.IndexWriter.commit(writer)
         end
 
         batch_end = System.monotonic_time(:millisecond)
@@ -360,24 +371,28 @@ defmodule MyApp.StreamingIndexer do
   alias TantivyEx.Index
 
   def index_from_database(index, query, batch_size \\ 1000) do
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+
     MyApp.Repo.stream(query)
     |> Stream.map(&MyApp.DocumentConverter.prepare_for_indexing/1)
     |> Stream.chunk_every(batch_size)
     |> Enum.each(fn batch ->
-      Enum.each(batch, &Index.add_document(index, &1))
-      Index.commit(index)  # Frequent commits for streaming
+      Enum.each(batch, &TantivyEx.IndexWriter.add_document(writer, &1))
+      TantivyEx.IndexWriter.commit(writer)  # Frequent commits for streaming
     end)
   end
 
   def index_from_csv(index, csv_path, batch_size \\ 1000) do
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+
     csv_path
     |> File.stream!()
     |> CSV.decode!(headers: true)
     |> Stream.map(&convert_csv_row/1)
     |> Stream.chunk_every(batch_size)
     |> Enum.each(fn batch ->
-      Enum.each(batch, &Index.add_document(index, &1))
-      Index.commit(index)
+      Enum.each(batch, &TantivyEx.IndexWriter.add_document(writer, &1))
+      TantivyEx.IndexWriter.commit(writer)
     end)
   end
 
@@ -399,17 +414,18 @@ defmodule MyApp.CommitStrategy do
   def adaptive_commit(index, documents, opts \\ []) do
     batch_size = Keyword.get(opts, :batch_size, 1000)
     commit_threshold = Keyword.get(opts, :commit_threshold, 10_000)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
     {indexed, uncommitted} =
       documents
       |> Enum.reduce({0, 0}, fn doc, {total, uncommitted} ->
-        Index.add_document(index, doc)
+        TantivyEx.IndexWriter.add_document(writer, doc)
         new_total = total + 1
         new_uncommitted = uncommitted + 1
 
         # Commit when threshold reached
         if new_uncommitted >= commit_threshold do
-          Index.commit(index)
+          TantivyEx.IndexWriter.commit(writer)
           {new_total, 0}
         else
           {new_total, new_uncommitted}
@@ -418,7 +434,7 @@ defmodule MyApp.CommitStrategy do
 
     # Final commit for remaining documents
     if uncommitted > 0 do
-      Index.commit(index)
+      TantivyEx.IndexWriter.commit(writer)
     end
 
     {:ok, indexed}
@@ -435,13 +451,15 @@ defmodule MyApp.StreamIndexer do
   alias TantivyEx.Index
 
   def index_from_stream(index, stream) do
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+
     stream
     |> Stream.map(&transform_document/1)
     |> Stream.chunk_every(500)
-    |> Stream.each(&index_batch(index, &1))
+    |> Stream.each(&index_batch(writer, &1))
     |> Stream.run()
 
-    Index.commit(index)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp transform_document(raw_data) do
@@ -452,9 +470,9 @@ defmodule MyApp.StreamIndexer do
     }
   end
 
-  defp index_batch(index, batch) do
-    Enum.each(batch, &Index.add_document(index, &1))
-    Index.commit(index)  # Periodic commits
+  defp index_batch(writer, batch) do
+    Enum.each(batch, &TantivyEx.IndexWriter.add_document(writer, &1))
+    TantivyEx.IndexWriter.commit(writer)  # Periodic commits
   end
 end
 ```
@@ -469,15 +487,17 @@ defmodule MyApp.DBIndexer do
   import Ecto.Query
 
   def index_all_articles(index) do
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+
     Article
     |> order_by(:id)
     |> MyApp.Repo.stream()
     |> Stream.map(&article_to_document/1)
     |> Stream.chunk_every(1000)
-    |> Stream.each(&index_batch(index, &1))
+    |> Stream.each(&index_batch(writer, &1))
     |> Stream.run()
 
-    Index.commit(index)
+    TantivyEx.IndexWriter.commit(writer)
   end
 
   defp article_to_document(article) do
@@ -491,8 +511,8 @@ defmodule MyApp.DBIndexer do
     }
   end
 
-  defp index_batch(index, batch) do
-    Enum.each(batch, &Index.add_document(index, &1))
+  defp index_batch(writer, batch) do
+    Enum.each(batch, &TantivyEx.IndexWriter.add_document(writer, &1))
   end
 end
 ```
@@ -676,8 +696,9 @@ defmodule MyApp.ConcurrentIndexer do
     end
 
     # Commit changes
-    case Index.commit(state.index) do
-      {:ok, _} ->
+    {:ok, writer} = TantivyEx.IndexWriter.new(state.index)
+    case TantivyEx.IndexWriter.commit(writer) do
+      :ok ->
         total = state.total_indexed + length(state.batch)
         {:reply, {:ok, total}, %{state | batch: [], total_indexed: total}}
 
@@ -697,7 +718,8 @@ defmodule MyApp.ConcurrentIndexer do
   end
 
   defp process_batch(index, batch) do
-    Enum.each(batch, &Index.add_document(index, &1))
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    Enum.each(batch, &TantivyEx.IndexWriter.add_document(writer, &1))
   end
 end
 ```
@@ -732,7 +754,9 @@ defmodule MyApp.MultiIndexManager do
 
     case Map.get(manager.indexes, target_index) do
       nil -> {:error, "Index #{target_index} not found"}
-      index -> TantivyEx.Index.add_document(index, document)
+      index ->
+        {:ok, writer} = TantivyEx.IndexWriter.new(index)
+        TantivyEx.IndexWriter.add_document(writer, document)
     end
   end
 
@@ -740,8 +764,12 @@ defmodule MyApp.MultiIndexManager do
     # Search across all indexes and merge results
     results =
       Enum.flat_map(manager.indexes, fn {_name, index} ->
-        case TantivyEx.Index.search(index, query, limit) do
-          {:ok, results} -> results
+        case TantivyEx.Searcher.new(index) do
+          {:ok, searcher} ->
+            case TantivyEx.Searcher.search(searcher, query, limit) do
+              {:ok, results} -> results
+              {:error, _} -> []
+            end
           {:error, _} -> []
         end
       end)
@@ -754,8 +782,9 @@ defmodule MyApp.MultiIndexManager do
   def commit_all(manager) do
     results =
       Enum.map(manager.indexes, fn {name, index} ->
-        case TantivyEx.Index.commit(index) do
-          {:ok, result} -> {:ok, name, result}
+        {:ok, writer} = TantivyEx.IndexWriter.new(index)
+        case TantivyEx.IndexWriter.commit(writer) do
+          :ok -> {:ok, name}
           {:error, reason} -> {:error, name, reason}
         end
       end)
@@ -814,9 +843,10 @@ defmodule MyApp.RobustIndexer do
   end
 
   defp do_index_with_retry(index, document, max_retries, attempt) do
-    case TantivyEx.Index.add_document(index, document) do
-      {:ok, result} ->
-        {:ok, result}
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    case TantivyEx.IndexWriter.add_document(writer, document) do
+      :ok ->
+        {:ok, :success}
 
       {:error, reason} when attempt < max_retries ->
         Logger.warn("Indexing failed (attempt #{attempt + 1}/#{max_retries + 1}): #{inspect(reason)}")
@@ -850,8 +880,9 @@ defmodule MyApp.RobustIndexer do
     end
 
     # Commit successful documents
-    case TantivyEx.Index.commit(index) do
-      {:ok, _} ->
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
+    case TantivyEx.IndexWriter.commit(writer) do
+      :ok ->
         {:ok, %{successful: length(successful), failed: failed}}
 
       {:error, reason} ->
@@ -941,7 +972,8 @@ defmodule MyApp.DeadLetterQueue do
 
     # Commit if we had any successes
     if length(successful) > 0 do
-      TantivyEx.Index.commit(index)
+      {:ok, writer} = TantivyEx.IndexWriter.new(index)
+      TantivyEx.IndexWriter.commit(writer)
     end
 
     # Update state with remaining failed documents
@@ -1087,8 +1119,9 @@ defmodule MyApp.IndexingService do
       process_batch(state.index, state.pending_documents)
     end
 
-    case Index.commit(state.index) do
-      {:ok, _} ->
+    {:ok, writer} = TantivyEx.IndexWriter.new(state.index)
+    case TantivyEx.IndexWriter.commit(writer) do
+      :ok ->
         stats = update_stats(state.stats, :commits, 1)
         {:reply, :ok, %{state |
           pending_documents: [],
@@ -1121,8 +1154,9 @@ defmodule MyApp.IndexingService do
     if length(state.pending_documents) > 0 do
       case process_batch(state.index, state.pending_documents) do
         {:ok, _} ->
-          case Index.commit(state.index) do
-            {:ok, _} ->
+          {:ok, writer} = TantivyEx.IndexWriter.new(state.index)
+          case TantivyEx.IndexWriter.commit(writer) do
+            :ok ->
               stats = update_stats(state.stats, :commits, 1)
               schedule_commit()
               {:noreply, %{state |
@@ -1157,10 +1191,11 @@ defmodule MyApp.IndexingService do
   # Private functions
   defp process_batch(index, documents) do
     start_time = System.monotonic_time(:millisecond)
+    {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
     result = Enum.reduce_while(documents, {:ok, 0}, fn doc, {:ok, count} ->
-      case Index.add_document(index, doc) do
-        {:ok, _} -> {:cont, {:ok, count + 1}}
+      case TantivyEx.IndexWriter.add_document(writer, doc) do
+        :ok -> {:cont, {:ok, count + 1}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
@@ -1199,8 +1234,12 @@ defmodule MyApp.IndexingService do
 
   defp perform_health_check(index) do
     # Simple health check - try to search
-    case Index.search(index, "*", 1) do
-      {:ok, _} -> true
+    case TantivyEx.Searcher.new(index) do
+      {:ok, searcher} ->
+        case TantivyEx.Searcher.search(searcher, "*", 1) do
+          {:ok, _} -> true
+          {:error, _} -> false
+        end
       {:error, _} -> false
     end
   end

@@ -2,6 +2,13 @@
 
 This guide covers query types, search strategies, and best practices for searching with TantivyEx.
 
+## Related Documentation
+
+- **[Document Operations Guide](documents.md)** - Learn how to create and manage documents for indexing
+- **[Search Results Guide](search_results.md)** - Advanced result processing, highlighting, and pagination
+- **[Schema Design Guide](schema.md)** - Design schemas that support effective searching
+- **[Indexing Guide](indexing.md)** - Optimize your index for search performance
+
 ## Table of Contents
 
 - [Basic Search](#basic-search)
@@ -16,13 +23,16 @@ This guide covers query types, search strategies, and best practices for searchi
 ### Simple Text Search
 
 ```elixir
-alias TantivyEx.Index
+alias TantivyEx.{Index, Searcher}
 
 # Open an existing index
 {:ok, index} = Index.open("/path/to/index")
 
+# Create a searcher
+{:ok, searcher} = Searcher.new(index)
+
 # Basic search - returns top 10 results
-{:ok, results} = Index.search(index, "elixir programming", 10)
+{:ok, results} = Searcher.search(searcher, "elixir programming", 10)
 
 # Results format: list of documents matching the schema
 results
@@ -37,11 +47,11 @@ results
 
 ```elixir
 # Get different numbers of results
-{:ok, top_5} = Index.search(index, "machine learning", 5)
-{:ok, top_50} = Index.search(index, "machine learning", 50)
+{:ok, top_5} = Searcher.search(searcher, "machine learning", 5)
+{:ok, top_50} = Searcher.search(searcher, "machine learning", 50)
 
 # Handle empty results
-case Index.search(index, "nonexistent term", 10) do
+case Searcher.search(searcher, "nonexistent term", 10) do
   {:ok, []} -> IO.puts("No results found")
   {:ok, results} -> IO.puts("Found #{length(results)} results")
   {:error, reason} -> IO.puts("Search failed: #{inspect(reason)}")
@@ -55,17 +65,19 @@ end
 Full-text search works on fields indexed with `:text` or `::text_stored` options:
 
 ```elixir
+{:ok, searcher} = TantivyEx.Searcher.new(index)
+
 # Single term
-{:ok, results} = Index.search(index, "elixir", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "elixir", 10)
 
 # Multiple terms (AND by default)
-{:ok, results} = Index.search(index, "elixir functional programming", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "elixir functional programming", 10)
 
 # Phrase search with quotes
-{:ok, results} = Index.search(index, "\"functional programming\"", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "\"functional programming\"", 10)
 
 # Partial matching
-{:ok, results} = Index.search(index, "program*", 10)  # matches "programming", "program", etc.
+{:ok, results} = TantivyEx.Searcher.search(searcher, "program*", 10)  # matches "programming", "program", etc.
 ```
 
 ### Field-Specific Search
@@ -74,13 +86,13 @@ Search within specific fields using field notation:
 
 ```elixir
 # Search only in title field
-{:ok, results} = Index.search(index, "title:elixir", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "title:elixir", 10)
 
 # Search in multiple specific fields
-{:ok, results} = Index.search(index, "title:elixir OR author:jose", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "title:elixir OR author:jose", 10)
 
 # Combine field-specific and general search
-{:ok, results} = Index.search(index, "title:elixir programming", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "title:elixir programming", 10)
 ```
 
 ### Boolean Queries
@@ -89,19 +101,19 @@ Use boolean operators for complex queries:
 
 ```elixir
 # AND operator (explicit)
-{:ok, results} = Index.search(index, "elixir AND phoenix", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "elixir AND phoenix", 10)
 
 # OR operator
-{:ok, results} = Index.search(index, "elixir OR erlang", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "elixir OR erlang", 10)
 
 # NOT operator
-{:ok, results} = Index.search(index, "programming NOT javascript", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "programming NOT javascript", 10)
 
 # Complex boolean combinations
-{:ok, results} = Index.search(index, "(elixir OR erlang) AND (web OR backend)", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "(elixir OR erlang) AND (web OR backend)", 10)
 
 # Grouping with parentheses
-{:ok, results} = Index.search(index, "title:(elixir OR phoenix) AND content:tutorial", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "title:(elixir OR phoenix) AND content:tutorial", 10)
 ```
 
 ### Range Queries
@@ -110,19 +122,19 @@ Search numeric and date fields with ranges:
 
 ```elixir
 # Numeric range queries
-{:ok, results} = Index.search(index, "price:[10.0 TO 100.0]", 10)
-{:ok, results} = Index.search(index, "rating:[4.0 TO *]", 10)  # 4.0 and above
-{:ok, results} = Index.search(index, "stock:[* TO 10]", 10)    # 10 and below
+{:ok, results} = TantivyEx.Searcher.search(searcher, "price:[10.0 TO 100.0]", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "rating:[4.0 TO *]", 10)  # 4.0 and above
+{:ok, results} = TantivyEx.Searcher.search(searcher, "stock:[* TO 10]", 10)    # 10 and below
 
 # Date range queries (Unix timestamps)
-{:ok, results} = Index.search(index, "published_at:[1640995200 TO 1641081600]", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "published_at:[1640995200 TO 1641081600]", 10)
 
 # Exclusive ranges
-{:ok, results} = Index.search(index, "price:{10.0 TO 100.0}", 10)  # excludes 10.0 and 100.0
+{:ok, results} = TantivyEx.Searcher.search(searcher, "price:{10.0 TO 100.0}", 10)  # excludes 10.0 and 100.0
 
 # Open-ended ranges
-{:ok, results} = Index.search(index, "timestamp:[1640995200 TO *]", 10)  # after date
-{:ok, results} = Index.search(index, "price:[* TO 50.0]", 10)           # below price
+{:ok, results} = TantivyEx.Searcher.search(searcher, "timestamp:[1640995200 TO *]", 10)  # after date
+{:ok, results} = TantivyEx.Searcher.search(searcher, "price:[* TO 50.0]", 10)           # below price
 ```
 
 ### Facet Queries
@@ -131,13 +143,13 @@ Search hierarchical facet fields:
 
 ```elixir
 # Exact facet match
-{:ok, results} = Index.search(index, "category:\"/electronics/phones\"", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "category:\"/electronics/phones\"", 10)
 
 # Facet prefix search
-{:ok, results} = Index.search(index, "category:\"/electronics/*\"", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "category:\"/electronics/*\"", 10)
 
 # Multiple facet values
-{:ok, results} = Index.search(index, "category:\"/books/fiction\" OR category:\"/books/sci-fi\"", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "category:\"/books/fiction\" OR category:\"/books/sci-fi\"", 10)
 ```
 
 ### Fuzzy Search
@@ -146,11 +158,11 @@ Search with typo tolerance:
 
 ```elixir
 # Fuzzy search with ~ operator
-{:ok, results} = Index.search(index, "progrmming~", 10)  # matches "programming"
-{:ok, results} = Index.search(index, "javascrpit~", 10)  # matches "javascript"
+{:ok, results} = TantivyEx.Searcher.search(searcher, "progrmming~", 10)  # matches "programming"
+{:ok, results} = TantivyEx.Searcher.search(searcher, "javascrpit~", 10)  # matches "javascript"
 
 # Fuzzy search with edit distance
-{:ok, results} = Index.search(index, "programming~2", 10)  # allows up to 2 character changes
+{:ok, results} = TantivyEx.Searcher.search(searcher, "programming~2", 10)  # allows up to 2 character changes
 ```
 
 ### Wildcard Search
@@ -159,16 +171,16 @@ Pattern matching in search terms:
 
 ```elixir
 # Wildcard at end
-{:ok, results} = Index.search(index, "prog*", 10)  # matches "programming", "program", "progress"
+{:ok, results} = TantivyEx.Searcher.search(searcher, "prog*", 10)  # matches "programming", "program", "progress"
 
 # Wildcard at beginning
-{:ok, results} = Index.search(index, "*ing", 10)   # matches "programming", "learning", "coding"
+{:ok, results} = TantivyEx.Searcher.search(searcher, "*ing", 10)   # matches "programming", "learning", "coding"
 
 # Wildcard in middle
-{:ok, results} = Index.search(index, "pro*ing", 10)  # matches "programming", "processing"
+{:ok, results} = TantivyEx.Searcher.search(searcher, "pro*ing", 10)  # matches "programming", "processing"
 
 # Single character wildcard
-{:ok, results} = Index.search(index, "te?t", 10)    # matches "test", "text"
+{:ok, results} = TantivyEx.Searcher.search(searcher, "te?t", 10)    # matches "test", "text"
 ```
 
 ## Search Parameters
@@ -177,8 +189,9 @@ Pattern matching in search terms:
 
 ```elixir
 # Standard pagination approach
-{:ok, page_1} = Index.search(index, "elixir", 20)   # First 20 results
-{:ok, page_2} = Index.search(index, "elixir", 40)   # First 40 results (includes page 1)
+{:ok, searcher} = TantivyEx.Searcher.new(index)
+{:ok, page_1} = TantivyEx.Searcher.search(searcher, "elixir", 20)   # First 20 results
+{:ok, page_2} = TantivyEx.Searcher.search(searcher, "elixir", 40)   # First 40 results (includes page 1)
 
 # For proper pagination, you'd need to track offset manually
 # or implement pagination in your application layer
@@ -191,7 +204,8 @@ While TantivyEx doesn't expose scores directly, you can implement relevance rank
 ```elixir
 defmodule MyApp.SearchRanker do
   def ranked_search(index, query, limit) do
-    case Index.search(index, query, limit * 2) do
+    searcher = TantivyEx.Searcher.new(index)
+    case TantivyEx.Searcher.search(searcher, query, limit * 2) do
       {:ok, results} ->
         ranked_results =
           results
@@ -258,25 +272,26 @@ alias TantivyEx.{Index, Query}
 
 # Term queries
 {:ok, term_query} = Query.term(parser, "field", "value")
-{:ok, results} = Index.search_with_query(index, term_query, 10)
+searcher = TantivyEx.Searcher.new(index)
+{:ok, results} = TantivyEx.Searcher.search_with_query(searcher, term_query, 10)
 
 # Phrase queries
 {:ok, phrase_query} = Query.phrase(parser, "field", ["exact", "phrase"])
-{:ok, results} = Index.search_with_query(index, phrase_query, 10)
+{:ok, results} = TantivyEx.Searcher.search_with_query(searcher, phrase_query, 10)
 
 # Range queries
 {:ok, range_query} = Query.range(parser, "price", 10.0, 100.0, true, true)
-{:ok, results} = Index.search_with_query(index, range_query, 10)
+{:ok, results} = TantivyEx.Searcher.search_with_query(searcher, range_query, 10)
 
 # Boolean queries
 {:ok, bool_query} = Query.boolean(parser)
 {:ok, bool_query} = Query.add_must(bool_query, term_query)
 {:ok, bool_query} = Query.add_should(bool_query, phrase_query)
-{:ok, results} = Index.search_with_query(index, bool_query, 10)
+{:ok, results} = TantivyEx.Searcher.search_with_query(searcher, bool_query, 10)
 
 # Fuzzy queries with edit distance
 {:ok, fuzzy_query} = Query.fuzzy_term(parser, "field", "misspeled", 2)
-{:ok, results} = Index.search_with_query(index, fuzzy_query, 10)
+{:ok, results} = TantivyEx.Searcher.search_with_query(searcher, fuzzy_query, 10)
 ```
 
 ### Search Result Processing
@@ -585,7 +600,8 @@ defmodule MyApp.MultiFieldSearch do
       end)
 
     # Execute search
-    case Index.search_with_query(index, bool_query, limit) do
+    searcher = TantivyEx.Searcher.new(index)
+    case TantivyEx.Searcher.search_with_query(searcher, bool_query, limit) do
       {:ok, results} -> {:ok, results}
       {:error, reason} -> {:error, reason}
     end
@@ -626,26 +642,30 @@ defmodule MyApp.MultiFieldSearch do
   end
 
   defp exact_phrase_search(index, query_string, limit) do
-    Index.search(index, "\"#{query_string}\"", limit)
+    searcher = TantivyEx.Searcher.new(index)
+    TantivyEx.Searcher.search(searcher, "\"#{query_string}\"", limit)
   end
 
   defp and_search(index, query_string, limit) do
     terms = String.split(query_string)
     and_query = Enum.join(terms, " AND ")
-    Index.search(index, and_query, limit)
+    searcher = TantivyEx.Searcher.new(index)
+    TantivyEx.Searcher.search(searcher, and_query, limit)
   end
 
   defp or_search(index, query_string, limit) do
     terms = String.split(query_string)
     or_query = Enum.join(terms, " OR ")
-    Index.search(index, or_query, limit)
+    searcher = TantivyEx.Searcher.new(index)
+    TantivyEx.Searcher.search(searcher, or_query, limit)
   end
 
   defp fuzzy_search(index, query_string, limit) do
     terms = String.split(query_string)
     fuzzy_terms = Enum.map(terms, &(&1 <> "~"))
     fuzzy_query = Enum.join(fuzzy_terms, " OR ")
-    Index.search(index, fuzzy_query, limit)
+    searcher = TantivyEx.Searcher.new(index)
+    TantivyEx.Searcher.search(searcher, fuzzy_query, limit)
   end
 end
 ```
@@ -671,7 +691,8 @@ defmodule MyApp.FacetedSearch do
     # Add filters to the query
     filtered_query = apply_filters(base_query, filters)
 
-    case Index.search(index, filtered_query, limit) do
+    searcher = TantivyEx.Searcher.new(index)
+    case TantivyEx.Searcher.search(searcher, filtered_query, limit) do
       {:ok, results} ->
         # Generate facets for the current result set
         facets = generate_facets(results)
@@ -875,7 +896,8 @@ defmodule MyApp.SearchCache do
     case GenServer.call(__MODULE__, {:get, cache_key}) do
       {:hit, results} -> {:ok, results}
       :miss ->
-        case TantivyEx.Index.search(index, query, limit) do
+        searcher = TantivyEx.Searcher.new(index)
+        case TantivyEx.Searcher.search(searcher, query, limit) do
           {:ok, results} = success ->
             GenServer.cast(__MODULE__, {:put, cache_key, results})
             success
@@ -994,7 +1016,8 @@ defmodule MyApp.EcommerceSearch do
   def product_search(index, query, filters \\ %{}) do
     search_query = build_product_query(query, filters)
 
-    case Index.search(index, search_query, 50) do
+    searcher = TantivyEx.Searcher.new(index)
+    case TantivyEx.Searcher.search(searcher, search_query, 50) do
       {:ok, results} ->
         processed_results =
           results
@@ -1141,7 +1164,8 @@ defmodule MyApp.CMSSearch do
     search_query = build_content_query(query, user_permissions)
     limit = Keyword.get(options, :limit, 20)
 
-    case Index.search(index, search_query, limit) do
+    searcher = TantivyEx.Searcher.new(index)
+    case TantivyEx.Searcher.search(searcher, search_query, limit) do
       {:ok, results} ->
         processed_results =
           results
@@ -1251,7 +1275,8 @@ defmodule MyApp.LogSearch do
     search_query = build_log_query(query, filters)
     limit = Keyword.get(options, :limit, 100)
 
-    case Index.search(index, search_query, limit) do
+    searcher = TantivyEx.Searcher.new(index)
+    case TantivyEx.Searcher.search(searcher, search_query, limit) do
       {:ok, results} ->
         processed_results =
           results

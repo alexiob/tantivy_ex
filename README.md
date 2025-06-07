@@ -5,19 +5,21 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/tantivy_ex/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+![TantivyEx Logo](assets/logo.png)
+
 **A comprehensive Elixir wrapper for the Tantivy full-text search engine.**
 
 TantivyEx provides a complete, type-safe interface to Tantivy - Rust's fastest full-text search library. Build powerful search applications with support for all Tantivy field types, custom tokenizers, schema introspection, and advanced indexing features.
 
 ## Features
 
-- 🚀 **High Performance**: Built on Tantivy, one of the fastest search engines available
-- 📝 **Complete Field Type Support**: Text, numeric, boolean, date, facet, bytes, JSON, and IP address fields
-- 🔍 **Advanced Text Processing**: Custom tokenizers, stemming, stop words, and more
-- 🏗️ **Schema Management**: Dynamic schema building with validation and introspection
-- 💾 **Flexible Storage**: In-memory or persistent disk-based indexes
-- 🔧 **Type Safety**: Full Elixir typespecs and compile-time safety
-- 📊 **Search Features**: Full-text search, faceted search, range queries, and aggregations
+- **High Performance**: Built on Tantivy, one of the fastest search engines available
+- **Complete Field Type Support**: Text, numeric, boolean, date, facet, bytes, JSON, and IP address fields
+- **Advanced Text Processing**: Custom tokenizers, stemming, stop words, and more
+- **Schema Management**: Dynamic schema building with validation and introspection
+- **Flexible Storage**: In-memory or persistent disk-based indexes
+- **Type Safety**: Full Elixir typespecs and compile-time safety
+- **Search Features**: Full-text search, faceted search, range queries, and aggregations
 
 ## Quick Start
 
@@ -30,10 +32,10 @@ schema = TantivyEx.Schema.new()
 |> TantivyEx.Schema.add_date_field("published_at", :fast)
 
 # Create an index
-{:ok, index} = TantivyEx.create_index_in_ram(schema)
+{:ok, index} = TantivyEx.Index.create_in_ram(schema)
 
 # Get a writer
-{:ok, writer} = TantivyEx.writer(index, 50_000_000)
+{:ok, writer} = TantivyEx.IndexWriter.new(index, 50_000_000)
 
 # Add documents
 doc = %{
@@ -43,12 +45,12 @@ doc = %{
   "published_at" => "2024-01-15T10:30:00Z"
 }
 
-:ok = TantivyEx.add_document(writer, doc)
-:ok = TantivyEx.commit(writer)
+:ok = TantivyEx.IndexWriter.add_document(writer, doc)
+:ok = TantivyEx.IndexWriter.commit(writer)
 
 # Search
-{:ok, searcher} = TantivyEx.reader(index)
-results = TantivyEx.search(searcher, "comprehensive guide", 10)
+{:ok, searcher} = TantivyEx.Searcher.new(index)
+results = TantivyEx.Searcher.search(searcher, "comprehensive guide", 10)
 ```
 
 ## Installation
@@ -71,14 +73,34 @@ TantivyEx requires:
 
 ## Documentation
 
-### Core Concepts
+### 📚 Complete Guides
 
-- **[Schema Guide](guides/schema.md)**: Learn about field types, options, and schema design
-- **[Indexing Guide](guides/indexing.md)**: Document indexing, updates, and batch operations
-- **[Search Guide](guides/search.md)**: Query types, ranking, and search best practices
-- **[Tokenizers Guide](guides/tokenizers.md)**: Text analysis, custom tokenizers, and language support
+**[Browse All Guides →](docs/guides.md)**
 
-### API Reference
+#### Getting Started
+
+- **[Installation & Setup](docs/installation-setup.md)**: Complete installation guide with configuration options
+- **[Quick Start Tutorial](docs/quick-start.md)**: Hands-on tutorial for your first search application
+- **[Core Concepts](docs/core-concepts.md)**: Essential concepts with comprehensive glossary
+
+#### Development & Production
+
+- **[Performance Tuning](docs/performance-tuning.md)**: Optimization strategies for indexing and search
+- **[Production Deployment](docs/production-deployment.md)**: Scalability, monitoring, and operational best practices
+- **[Integration Patterns](docs/integration-patterns.md)**: Phoenix/LiveView integration and advanced architectures
+
+### 🔧 API Documentation
+
+#### Core Components
+
+- **[Schema Management](docs/schema.md)**: Field types, options, and schema design patterns
+- **[Document Operations](docs/documents.md)**: Adding, updating, and managing documents
+- **[Indexing](docs/indexing.md)**: Index creation, writing, and maintenance
+- **[Search Operations](docs/search.md)**: Query syntax, ranking, and search best practices
+- **[Search Results](docs/search_results.md)**: Result handling and formatting
+- **[Tokenizers](docs/tokenizers.md)**: Text analysis, custom tokenizers, and language support
+
+#### API Reference
 
 - **[TantivyEx](https://hexdocs.pm/tantivy_ex/TantivyEx.html)**: Main module with index operations
 - **[TantivyEx.Schema](https://hexdocs.pm/tantivy_ex/TantivyEx.Schema.html)**: Schema definition and management
@@ -169,7 +191,7 @@ We welcome contributions! Please see [DEVELOPMENT.md](DEVELOPMENT.md) for develo
 ### Development Setup
 
 ```bash
-git clone https://github.com/your-org/tantivy_ex.git
+git clone https://github.com/alexiob/tantivy_ex.git
 cd tantivy_ex
 mix deps.get
 mix test
@@ -187,4 +209,4 @@ TantivyEx is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for d
 
 ---
 
-**Ready to build powerful search applications?** Check out our [guides](guides/) and start searching! 🔍
+**Ready to build powerful search applications?** Check out our [guides](docs/guides.md) and start searching! 🔍

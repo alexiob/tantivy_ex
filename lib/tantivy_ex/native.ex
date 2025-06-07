@@ -61,6 +61,15 @@ defmodule TantivyEx.Native do
   def writer_add_document(_writer, _document_json), do: :erlang.nif_error(:nif_not_loaded)
   def writer_commit(_writer), do: :erlang.nif_error(:nif_not_loaded)
 
+  # Enhanced document operations
+  def writer_add_document_with_schema(_writer, _document, _schema),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def writer_add_document_batch(_writer, _documents, _schema),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def validate_document_against_schema(_document, _schema), do: :erlang.nif_error(:nif_not_loaded)
+
   # Search functions
   def index_reader(_index), do: :erlang.nif_error(:nif_not_loaded)
   def searcher_search(_searcher, _query, _limit), do: :erlang.nif_error(:nif_not_loaded)
@@ -104,6 +113,8 @@ defmodule TantivyEx.Native do
         _boost_factor
       ),
       do: :erlang.nif_error(:nif_not_loaded)
+
+  def query_extract_terms(_query, _schema), do: :erlang.nif_error(:nif_not_loaded)
 
   # Enhanced search function
   def searcher_search_with_query(_searcher, _query, _limit, _include_docs),

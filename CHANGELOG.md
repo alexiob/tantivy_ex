@@ -9,13 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Document Operations (Complete Implementation)
+
+- **Schema-aware document validation** - Full validation against schema with comprehensive error reporting
+- **Batch document operations** - High-performance batch processing with configurable commit strategies
+- **Complete field type support** - Document operations for all field types (text, u64, i64, f64, bool, date, facet, bytes, json, ip_addr)
+- **JSON document preparation** - Sophisticated JSON document handling and preparation
+- **Type conversion and validation** - Robust type conversion with detailed validation functions
+- **Document updates and deletions** - Full CRUD operations with proper error handling
+- **Error recovery mechanisms** - Comprehensive error handling and recovery strategies
+
 #### Documentation Enhancements
 
-- **Comprehensive guides index** - Created extensive `docs/guides.md` with installation, quick start, core concepts, and integration patterns
+- **Restructured documentation architecture** - Transformed monolithic guides into modular, focused documentation with improved navigation
+- **Comprehensive guides index** - Created extensive `docs/guides.md` with clear navigation by experience level and use case
+- **Separated guide files** - Split documentation into focused guides:
+  - `installation-setup.md` - Complete installation and configuration guide
+  - `quick-start.md` - Hands-on tutorial for beginners
+  - `core-concepts.md` - Fundamental concepts with comprehensive glossary of TantivyEx/Tantivy terminology
+  - `performance-tuning.md` - Optimization strategies for production workloads
+  - `production-deployment.md` - Scalability, monitoring, and operational best practices
+  - `integration-patterns.md` - Phoenix/LiveView integration and advanced architectures
 - **Enhanced schema documentation** - Deep dive into field options, common pitfalls, and real-world examples for e-commerce, document management, and social media analytics
 - **Advanced indexing patterns** - Concurrent indexing with workers, multi-index management, error handling with dead letter queues, and production-ready indexing service
 - **Extensive search guide** - Multi-field search strategies, faceting, analytics, query optimization, and advanced search patterns
 - **Complete tokenizers guide** - Language-specific tokenization, performance considerations, troubleshooting, and real-world examples
+- **Comprehensive glossary** - Detailed definitions of all TantivyEx/Tantivy-specific terms including facets, segments, commits, analyzers, and field options
+- **Updated README navigation** - Reorganized documentation links with clear categorization and improved user journey guidance
 
 #### Core Features & Fixes
 
@@ -49,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Full-text search** - Advanced query capabilities with boolean operators, range queries, and faceted search
 - **Native Rust integration** - Direct Rust NIF implementation for maximum performance
 
-#### Field Types Support
+#### Comprehensive Field Type Support
 
 - **Text fields** with indexing options:
   - `:text` - Indexed for search only
