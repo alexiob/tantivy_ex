@@ -7,6 +7,7 @@ A comprehensive collection of guides to help you get the most out of TantivyEx, 
 - **New to TantivyEx?** Start with [Installation & Setup](installation-setup.md)
 - **Want to try it out?** Jump to [Quick Start Tutorial](quick-start.md)
 - **Need to understand the basics?** Read [Core Concepts](core-concepts.md)
+- **Want analytics and reporting?** Explore [Aggregations](aggregations.md)
 - **Performance issues?** Check [Performance Tuning](performance-tuning.md)
 - **Going to production?** Review [Production Deployment](production-deployment.md)
 - **Building integrations?** Explore [Integration Patterns](integration-patterns.md)
@@ -80,6 +81,19 @@ Everything you need to know about deploying TantivyEx in production environments
 
 ### 🔧 Advanced Topics
 
+#### [Aggregations](aggregations.md)
+
+Comprehensive guide to data aggregation and analytics using TantivyEx. Learn how to perform complex data analysis, generate reports, and extract insights from your search data.
+
+**Key Topics:**
+
+- Bucket aggregations (terms, histogram, date_histogram, range)
+- Metric aggregations (avg, min, max, sum, stats, percentiles)
+- Nested aggregations and sub-aggregations
+- Elasticsearch-compatible aggregation API
+- Performance optimization for large datasets
+- Real-world examples and use cases
+
 #### [Integration Patterns](integration-patterns.md)
 
 Advanced patterns for integrating TantivyEx with web frameworks, databases, and other systems. Learn about real-time indexing, distributed search, and complex architectures.
@@ -103,6 +117,7 @@ Advanced patterns for integrating TantivyEx with web frameworks, databases, and 
 - [Search Operations](search.md)
 - [Search Results](search_results.md)
 - [Tokenizers](tokenizers.md)
+- [Aggregations](aggregations.md)
 
 ### Community & Support
 

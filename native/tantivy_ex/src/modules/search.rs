@@ -13,7 +13,7 @@ use crate::modules::resources::{QueryResource, SearcherResource};
 pub fn searcher_search<'a>(
     env: Env<'a>,
     searcher_res: ResourceArc<SearcherResource>,
-    query_str: String,
+    _query_str: String,
     limit: usize,
     include_docs: bool,
 ) -> NifResult<Term<'a>> {

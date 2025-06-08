@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive error handling** - Detailed error messages for invalid configurations
 - **Production-ready defaults** - Sensible default tokenizer configurations for common use cases
 
+#### Comprehensive Aggregation System (New in v0.2.0)
+
+- **Complete aggregation module** - `TantivyEx.Aggregation` with full Elasticsearch-compatible aggregation capabilities
+- **Bucket aggregations** - Terms, histogram, date_histogram, and range aggregations for data grouping and analysis
+- **Metric aggregations** - Average, min, max, sum, count, stats, and percentiles for statistical analysis
+- **Nested aggregations** - Support for sub-aggregations with unlimited nesting depth for complex analytics
+- **Elasticsearch compatibility** - Full compatibility with Elasticsearch aggregation request/response format
+- **Memory optimization** - Built-in memory limits and performance optimizations for large datasets
+- **Advanced aggregation options** - Support for ordering, filtering, missing values, and custom bucket ranges
+- **Real-world examples** - Comprehensive examples for e-commerce analytics, blog content analysis, and user activity tracking
+
 #### Tokenizer API Functions
 
 - `register_default_tokenizers/0` - Register commonly used tokenizers
@@ -40,6 +51,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `register_stemming_tokenizer/1` - Language-specific stemming
 - `register_language_analyzer/1` - Complete language analysis pipeline
 - `benchmark_tokenizer/3` - Performance testing utilities
+
+#### Aggregation API Functions
+
+- `run/3` - Execute aggregations on search results with query filtering
+- `search_with_aggregations/4` - Combined search and aggregation in a single operation
+- `terms/2` - Helper function for terms aggregation creation
+- `histogram/2` - Helper function for histogram aggregation creation
+- `date_histogram/2` - Helper function for date-based histogram aggregation
+- `range/2` - Helper function for range aggregation creation
+- `avg/1`, `min/1`, `max/1`, `sum/1` - Metric aggregation helpers
+- `stats/1` - Helper function for comprehensive statistics aggregation
+- `percentiles/2` - Helper function for percentile calculations
+- `build_request/1` - Utility for building complex aggregation requests
+- `validate_request/1` - Request validation and error checking
 
 #### Advanced Text Processing Features
 

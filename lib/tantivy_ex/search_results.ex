@@ -245,6 +245,9 @@ defmodule TantivyEx.SearchResults do
   @doc """
   Aggregates search results by specified fields to generate facets.
 
+  This is a simple post-processing aggregation for compatibility. For advanced aggregations
+  including metric calculations, histograms, and nested aggregations, use TantivyEx.Aggregation.
+
   ## Parameters
 
   - `results`: List of search results
@@ -258,6 +261,14 @@ defmodule TantivyEx.SearchResults do
         "category" => %{"books" => 15, "electronics" => 8, "clothing" => 12},
         "price_range" => %{"0-25" => 10, "25-50" => 15, "50+" => 10}
       }
+
+  For advanced aggregations, use:
+
+      # Terms aggregation with Tantivy's native aggregation system
+      aggregations = %{
+        "categories" => TantivyEx.Aggregation.terms("category", size: 10)
+      }
+      {:ok, agg_results} = TantivyEx.Aggregation.run(searcher, query, aggregations)
   """
   @spec aggregate([map()], [String.t()]) :: {:ok, map()} | {:error, String.t()}
   def aggregate(results, facet_fields) when is_list(facet_fields) do

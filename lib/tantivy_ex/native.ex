@@ -146,4 +146,11 @@ defmodule TantivyEx.Native do
   def tokenize_text_detailed(_tokenizer_name, _text), do: :erlang.nif_error(:nif_not_loaded)
   def process_pre_tokenized_text(_tokens), do: :erlang.nif_error(:nif_not_loaded)
   def register_default_tokenizers(), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Aggregation functions
+  def run_aggregations(_searcher, _query, _aggregations_json),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def run_search_with_aggregations(_searcher, _query, _aggregations_json, _search_limit),
+    do: :erlang.nif_error(:nif_not_loaded)
 end

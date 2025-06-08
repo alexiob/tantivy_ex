@@ -2,6 +2,7 @@
 
 // Module declarations
 pub mod modules {
+    pub mod aggregation;
     pub mod document;
     pub mod index;
     pub mod query;
@@ -14,6 +15,8 @@ pub mod modules {
 // Import all public functions from modules
 // Note: These imports appear "unused" to the compiler because they're used
 // via the #[rustler::nif] macro system, not direct Rust function calls
+#[allow(unused_imports)]
+use modules::aggregation::*;
 #[allow(unused_imports)]
 use modules::document::*;
 #[allow(unused_imports)]

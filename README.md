@@ -21,7 +21,8 @@ TantivyEx provides a complete, type-safe interface to Tantivy - Rust's fastest f
 - **Schema Management**: Dynamic schema building with validation and introspection
 - **Flexible Storage**: In-memory or persistent disk-based indexes
 - **Type Safety**: Full Elixir typespecs and compile-time safety
-- **Search Features**: Full-text search, faceted search, range queries, and aggregations
+- **Advanced Aggregations**: Elasticsearch-compatible bucket aggregations (terms, histogram, date_histogram, range) and metric aggregations (avg, min, max, sum, stats, percentiles) with nested sub-aggregations
+- **Search Features**: Full-text search, faceted search, range queries, and comprehensive analytics
 
 ## Quick Start
 
@@ -56,6 +57,41 @@ doc = %{
 # Search
 {:ok, searcher} = TantivyEx.Searcher.new(index)
 results = TantivyEx.Searcher.search(searcher, "comprehensive guide", 10)
+
+# Advanced Aggregations (New in v0.2.0)
+{:ok, query} = TantivyEx.Query.all()
+
+# Terms aggregation for category analysis
+aggregations = %{
+  "categories" => %{
+    "terms" => %{
+      "field" => "category",
+      "size" => 10
+    }
+  }
+}
+
+{:ok, agg_results} = TantivyEx.Aggregation.run(searcher, query, aggregations)
+
+# Histogram aggregation for numerical analysis
+price_histogram = %{
+  "price_ranges" => %{
+    "histogram" => %{
+      "field" => "price",
+      "interval" => 50.0
+    }
+  }
+}
+
+{:ok, histogram_results} = TantivyEx.Aggregation.run(searcher, query, price_histogram)
+
+# Combined search with aggregations
+{:ok, search_results, agg_results} = TantivyEx.Aggregation.search_with_aggregations(
+  searcher,
+  query,
+  aggregations,
+  20  # search limit
+)
 ```
 
 ## Installation
@@ -103,12 +139,14 @@ TantivyEx requires:
 - **[Indexing](docs/indexing.md)**: Index creation, writing, and maintenance
 - **[Search Operations](docs/search.md)**: Query syntax, ranking, and search best practices
 - **[Search Results](docs/search_results.md)**: Result handling and formatting
+- **[Aggregations](docs/aggregations.md)**: Data analysis, bucket and metric aggregations, and analytics
 - **[Tokenizers](docs/tokenizers.md)**: Text analysis, custom tokenizers, and language support
 
 #### API Reference
 
 - **[TantivyEx](https://hexdocs.pm/tantivy_ex/TantivyEx.html)**: Main module with index operations
 - **[TantivyEx.Schema](https://hexdocs.pm/tantivy_ex/TantivyEx.Schema.html)**: Schema definition and management
+- **[TantivyEx.Aggregation](https://hexdocs.pm/tantivy_ex/TantivyEx.Aggregation.html)**: Data analysis and aggregation operations
 - **[TantivyEx.Native](https://hexdocs.pm/tantivy_ex/TantivyEx.Native.html)**: Low-level NIF functions
 
 ## Field Types

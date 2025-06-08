@@ -3,7 +3,8 @@ defmodule TantivyEx do
   TantivyEx is an Elixir NIF wrapper for the Tantivy Rust full-text search engine library.
 
   Tantivy is a fast full-text search engine library written in Rust, inspired by Apache Lucene.
-  This wrapper provides Elixir bindings to create search indices, add documents, and perform searches.
+  This wrapper provides Elixir bindings to create search indices, add documents, perform searches,
+  and run comprehensive aggregations.
 
   ## Basic Usage
 
@@ -26,6 +27,26 @@ defmodule TantivyEx do
       # Search
       {:ok, searcher} = TantivyEx.Searcher.new(index)
       {:ok, results} = TantivyEx.Searcher.search(searcher, "hello", 10)
+
+  ## Advanced Aggregations
+
+      # Terms aggregation
+      aggregations = %{
+        "categories" => TantivyEx.Aggregation.terms("category", size: 10)
+      }
+      {:ok, agg_results} = TantivyEx.Aggregation.run(searcher, query, aggregations)
+
+      # Metric aggregations
+      aggregations = %{
+        "avg_price" => TantivyEx.Aggregation.metric(:avg, "price"),
+        "price_stats" => TantivyEx.Aggregation.metric(:stats, "price")
+      }
+
+      # Complex nested aggregations
+      price_histogram = TantivyEx.Aggregation.histogram("price", 10.0)
+      |> TantivyEx.Aggregation.with_sub_aggregations(%{
+        "avg_rating" => TantivyEx.Aggregation.metric(:avg, "rating")
+      })
 
   ## Advanced Tokenization
 
