@@ -72,7 +72,9 @@ defmodule TantivyEx.Native do
 
   # Search functions
   def index_reader(_index), do: :erlang.nif_error(:nif_not_loaded)
-  def searcher_search(_searcher, _query, _limit), do: :erlang.nif_error(:nif_not_loaded)
+
+  def searcher_search(_searcher, _query, _limit, _include_docs),
+    do: :erlang.nif_error(:nif_not_loaded)
 
   # Query Parser functions
   def query_parser_new(_schema, _default_fields), do: :erlang.nif_error(:nif_not_loaded)
@@ -119,4 +121,29 @@ defmodule TantivyEx.Native do
   # Enhanced search function
   def searcher_search_with_query(_searcher, _query, _limit, _include_docs),
     do: :erlang.nif_error(:nif_not_loaded)
+
+  # Tokenizer functions
+  def tokenizer_manager_new(), do: :erlang.nif_error(:nif_not_loaded)
+  def register_simple_tokenizer(_name), do: :erlang.nif_error(:nif_not_loaded)
+  def register_whitespace_tokenizer(_name), do: :erlang.nif_error(:nif_not_loaded)
+  def register_regex_tokenizer(_name, _pattern), do: :erlang.nif_error(:nif_not_loaded)
+
+  def register_ngram_tokenizer(_name, _min_gram, _max_gram, _prefix_only),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def register_text_analyzer(
+        _name,
+        _base_tokenizer,
+        _lowercase,
+        _stop_words_language,
+        _stemming_language,
+        _remove_long_threshold
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  def list_tokenizers(), do: :erlang.nif_error(:nif_not_loaded)
+  def tokenize_text(_tokenizer_name, _text), do: :erlang.nif_error(:nif_not_loaded)
+  def tokenize_text_detailed(_tokenizer_name, _text), do: :erlang.nif_error(:nif_not_loaded)
+  def process_pre_tokenized_text(_tokens), do: :erlang.nif_error(:nif_not_loaded)
+  def register_default_tokenizers(), do: :erlang.nif_error(:nif_not_loaded)
 end

@@ -51,9 +51,9 @@ Verify your installation with a simple test:
 alias TantivyEx.{Index, Schema}
 
 # Create a simple schema
-{:ok, schema} = Schema.new()
-{:ok, schema} = Schema.add_text_field(schema, "title", :text)
-{:ok, schema} = Schema.add_text_field(schema, "content", :text)
+schema = Schema.new()
+schema = Schema.add_text_field(schema, "title", :text)
+schema = Schema.add_text_field(schema, "content", :text)
 
 # Create a temporary index
 {:ok, index} = Index.create_in_ram(schema)

@@ -8,6 +8,7 @@ pub mod modules {
     pub mod resources;
     pub mod schema;
     pub mod search;
+    pub mod tokenizer;
 }
 
 // Import all public functions from modules
@@ -23,6 +24,8 @@ use modules::query::*;
 use modules::schema::*;
 #[allow(unused_imports)]
 use modules::search::*;
+#[allow(unused_imports)]
+use modules::tokenizer::*;
 
 rustler::atoms! {
     ok,
@@ -38,6 +41,7 @@ fn load(env: rustler::Env, _: rustler::Term) -> bool {
     let _ = rustler::resource!(modules::resources::SearcherResource, env);
     let _ = rustler::resource!(modules::resources::QueryResource, env);
     let _ = rustler::resource!(modules::resources::QueryParserResource, env);
+    let _ = rustler::resource!(modules::resources::TokenizerManagerResource, env);
     true
 }
 

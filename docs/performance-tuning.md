@@ -33,13 +33,13 @@ Schema.add_f64_field(schema, "price", :fast_stored)
 
 ```elixir
 # ❌ Poor performance - storing large content unnecessarily
-{:ok, schema} = Schema.add_text_field(schema, "full_content", :text_stored)
+schema = Schema.add_text_field(schema, "full_content", :text_stored)
 
 # ✅ Better - only index for search
-{:ok, schema} = Schema.add_text_field(schema, "full_content", :text)
+schema = Schema.add_text_field(schema, "full_content", :text)
 
 # Store a separate summary field for display
-{:ok, schema} = Schema.add_text_field(schema, "summary", :text_stored)
+schema = Schema.add_text_field(schema, "summary", :text_stored)
 ```
 
 ### Field Type Selection Impact
@@ -47,17 +47,17 @@ Schema.add_f64_field(schema, "price", :fast_stored)
 ```elixir
 defmodule SchemaOptimizer do
   def create_optimized_schema() do
-    {:ok, schema} = Schema.new()
+    schema = Schema.new()
 
     # Text fields - choose based on use case
-    {:ok, schema} = Schema.add_text_field(schema, "title", :text_stored)     # Search + display
-    {:ok, schema} = Schema.add_text_field(schema, "content", :text)          # Search only
-    {:ok, schema} = Schema.add_text_field(schema, "summary", :stored)        # Display only
+    schema = Schema.add_text_field(schema, "title", :text_stored)     # Search + display
+    schema = Schema.add_text_field(schema, "content", :text)          # Search only
+    schema = Schema.add_text_field(schema, "summary", :stored)        # Display only
 
     # Numeric fields - optimize for operations
-    {:ok, schema} = Schema.add_u64_field(schema, "timestamp", :fast)         # Filtering/sorting
-    {:ok, schema} = Schema.add_f64_field(schema, "price", :fast_stored)      # Filter + display
-    {:ok, schema} = Schema.add_u64_field(schema, "view_count", :stored)      # Display only
+    schema = Schema.add_u64_field(schema, "timestamp", :fast)         # Filtering/sorting
+    schema = Schema.add_f64_field(schema, "price", :fast_stored)      # Filter + display
+    schema = Schema.add_u64_field(schema, "view_count", :stored)      # Display only
 
     # Facet fields - for navigation
     {:ok, schema} = Schema.add_facet_field(schema, "category", :facet)

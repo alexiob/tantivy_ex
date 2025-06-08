@@ -73,10 +73,10 @@ defmodule TantivyEx.Searcher do
           {:ok, [search_result()]} | {:error, String.t()}
   def search(searcher, query, limit \\ 10, include_docs \\ true)
 
-  def search(searcher, query, limit, _include_docs) when is_binary(query) do
+  def search(searcher, query, limit, include_docs) when is_binary(query) do
     # Legacy string-based search - uses the old implementation for now
     # In the future, this could parse the string with a default parser
-    case Native.searcher_search(searcher, query, limit) do
+    case Native.searcher_search(searcher, query, limit, include_docs) do
       {:error, reason} ->
         {:error, reason}
 
@@ -113,9 +113,9 @@ defmodule TantivyEx.Searcher do
   end
 
   @doc """
-  Searches the index and returns only document IDs and scores.
+  Searches the index and returns only document IDs.
 
-  This is more efficient when you only need document IDs and scores, not the full documents.
+  This is more efficient when you only need document IDs, not the full documents or scores.
 
   ## Parameters
 
@@ -126,23 +126,20 @@ defmodule TantivyEx.Searcher do
   ## Examples
 
       iex> {:ok, query} = TantivyEx.Query.term(schema, "title", "hello")
-      iex> {:ok, results} = TantivyEx.Searcher.search_ids(searcher, query, 10)
-      iex> [%{"score" => 1.0, "doc_id" => 1}, %{"score" => 0.8, "doc_id" => 5}] = results
+      iex> {:ok, doc_ids} = TantivyEx.Searcher.search_ids(searcher, query, 10)
+      iex> [1, 5, 3] = doc_ids
   """
   @spec search_ids(t(), String.t() | Query.t(), pos_integer()) ::
-          {:ok, [%{score: float(), doc_id: pos_integer()}]} | {:error, String.t()}
+          {:ok, [pos_integer()]} | {:error, String.t()}
   def search_ids(searcher, query, limit \\ 10) do
     case search(searcher, query, limit, false) do
       {:ok, results} ->
-        formatted_results =
+        doc_ids =
           Enum.map(results, fn result ->
-            %{
-              score: Map.get(result, "score", 0.0),
-              doc_id: Map.get(result, "doc_id", 0)
-            }
+            Map.get(result, "doc_id", 0)
           end)
 
-        {:ok, formatted_results}
+        {:ok, doc_ids}
 
       {:error, reason} ->
         {:error, reason}

@@ -8,16 +8,16 @@ Let's build a simple blog search engine in 5 minutes:
 alias TantivyEx.{Index, Schema}
 
 # Create a new schema
-{:ok, schema} = Schema.new()
+schema = Schema.new()
 
 # Add fields for a blog post
-{:ok, schema} = Schema.add_text_field(schema, "title", :text_stored)
-{:ok, schema} = Schema.add_text_field(schema, "content", :text)
-{:ok, schema} = Schema.add_text_field(schema, "author", :text_stored)
-{:ok, schema} = Schema.add_text_field(schema, "tags", :text)
-{:ok, schema} = Schema.add_u64_field(schema, "published_at", :fast_stored)
-{:ok, schema} = Schema.add_f64_field(schema, "rating", :fast_stored)
-{:ok, schema} = Schema.add_facet_field(schema, "category", :facet)
+schema = Schema.add_text_field(schema, "title", :text_stored)
+schema = Schema.add_text_field(schema, "content", :text)
+schema = Schema.add_text_field(schema, "author", :text_stored)
+schema = Schema.add_text_field(schema, "tags", :text)
+schema = Schema.add_u64_field(schema, "published_at", :fast_stored)
+schema = Schema.add_f64_field(schema, "rating", :fast_stored)
+schema = Schema.add_facet_field(schema, "category", :facet)
 ```
 
 ## Step 2: Create Your Index

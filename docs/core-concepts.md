@@ -40,9 +40,9 @@ An **Index** is a data structure that stores your documents in a way that enable
 A **Schema** defines the structure of your documents - what fields they have and how those fields should be processed and stored.
 
 ```elixir
-{:ok, schema} = Schema.new()
-{:ok, schema} = Schema.add_text_field(schema, "title", :text_stored)
-{:ok, schema} = Schema.add_u64_field(schema, "timestamp", :fast_stored)
+schema = Schema.new()
+schema = Schema.add_text_field(schema, "title", :text_stored)
+schema = Schema.add_u64_field(schema, "timestamp", :fast_stored)
 ```
 
 **Schema Design Principles:**
@@ -81,35 +81,35 @@ document = %{
 
 ```elixir
 # For full-text search
-{:ok, schema} = Schema.add_text_field(schema, "content", :text)
+schema = Schema.add_text_field(schema, "content", :text)
 
 # For exact matches and storage
-{:ok, schema} = Schema.add_text_field(schema, "title", :text_stored)
+schema = Schema.add_text_field(schema, "title", :text_stored)
 ```
 
 #### Numeric Fields
 
 ```elixir
 # For integers
-{:ok, schema} = Schema.add_u64_field(schema, "timestamp", :fast_stored)
-{:ok, schema} = Schema.add_i64_field(schema, "score", :fast)
+schema = Schema.add_u64_field(schema, "timestamp", :fast_stored)
+schema = Schema.add_i64_field(schema, "score", :fast)
 
 # For floating point
-{:ok, schema} = Schema.add_f64_field(schema, "price", :fast_stored)
+schema = Schema.add_f64_field(schema, "price", :fast_stored)
 ```
 
 #### Facet Fields
 
 ```elixir
 # For hierarchical filtering
-{:ok, schema} = Schema.add_facet_field(schema, "category", :facet)
+schema = Schema.add_facet_field(schema, "category", :facet)
 ```
 
 #### Binary Fields
 
 ```elixir
 # For storing raw data
-{:ok, schema} = Schema.add_bytes_field(schema, "thumbnail", :stored)
+schema = Schema.add_bytes_field(schema, "thumbnail", :stored)
 ```
 
 ### 5. Queries

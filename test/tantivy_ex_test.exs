@@ -135,10 +135,11 @@ defmodule TantivyExTest do
       case Searcher.search(searcher, "story", 10) do
         {:ok, results} ->
           assert is_list(results)
+          # Should find documents containing "story" in title or body
+          assert length(results) >= 0
 
-        {:error, _reason} ->
-          # Search functionality might not be fully implemented yet
-          :ok
+        {:error, reason} ->
+          flunk("Search operation failed unexpectedly: #{inspect(reason)}")
       end
     end
 
@@ -148,10 +149,13 @@ defmodule TantivyExTest do
       case Searcher.search_ids(searcher, "novel", 5) do
         {:ok, doc_ids} ->
           assert is_list(doc_ids)
+          # Should return document IDs as integers or empty list
+          Enum.each(doc_ids, fn doc_id ->
+            assert is_integer(doc_id) and doc_id >= 0
+          end)
 
-        {:error, _reason} ->
-          # Search functionality might not be fully implemented yet
-          :ok
+        {:error, reason} ->
+          flunk("Search IDs operation failed unexpectedly: #{inspect(reason)}")
       end
     end
   end
@@ -201,11 +205,14 @@ defmodule TantivyExTest do
       case Searcher.search(searcher, "programming", 10) do
         {:ok, results} ->
           assert is_list(results)
+          # Should find documents containing "programming"
+          # Verify result structure if results are found
+          Enum.each(results, fn result ->
+            assert is_map(result) or is_tuple(result)
+          end)
 
-        # Results might be empty if search isn't fully implemented
-        {:error, _reason} ->
-          # Expected for now since search might not be fully functional
-          :ok
+        {:error, reason} ->
+          flunk("Integration test search failed unexpectedly: #{inspect(reason)}")
       end
     end
   end

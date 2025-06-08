@@ -1,6 +1,26 @@
 # Tokenizers Guide
 
-This comprehensive guide covers text analysis, tokenization strategies, custom tokenizers, and advanced text processing techniques in TantivyEx.
+**Updated for TantivyEx v0.2.0** - This comprehensive guide covers the new advanced tokenization system, text analysis capabilities, and multi-language support in TantivyEx.
+
+## Quick Start
+
+```elixir
+# Start with default tokenizers (recommended)
+TantivyEx.Tokenizer.register_default_tokenizers()
+
+# List available tokenizers
+tokenizers = TantivyEx.Tokenizer.list_tokenizers()
+# ["default", "simple", "keyword", "whitespace", "raw", "en_stem", "fr_stem", ...]
+
+# Test tokenization
+tokens = TantivyEx.Tokenizer.tokenize_text("default", "The quick brown foxes are running!")
+# ["quick", "brown", "fox", "run"]  # Notice stemming: foxes -> fox, running -> run
+
+# Create schema with tokenizers
+schema = TantivyEx.Schema.new()
+|> TantivyEx.Schema.add_text_field_with_tokenizer("content", :text, "default")
+|> TantivyEx.Schema.add_text_field_with_tokenizer("tags", :text, "whitespace")
+```
 
 ## Related Documentation
 
@@ -11,15 +31,89 @@ This comprehensive guide covers text analysis, tokenization strategies, custom t
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
+- [TantivyEx.Tokenizer Module](#tantivyextokenizer-module)
 - [Understanding Tokenizers](#understanding-tokenizers)
 - [Built-in Tokenizers](#built-in-tokenizers)
-- [Custom Tokenizer Usage](#custom-tokenizer-usage)
+- [Custom Tokenizer Registration](#custom-tokenizer-registration)
+- [Advanced Text Analyzers](#advanced-text-analyzers)
+- [Multi-Language Support](#multi-language-support)
 - [Tokenizer Selection Guide](#tokenizer-selection-guide)
 - [Advanced Text Processing](#advanced-text-processing)
 - [Language-Specific Tokenization](#language-specific-tokenization)
 - [Performance Considerations](#performance-considerations)
 - [Real-world Examples](#real-world-examples)
 - [Troubleshooting](#troubleshooting)
+
+## TantivyEx.Tokenizer Module
+
+**New in v0.2.0:** The `TantivyEx.Tokenizer` module provides comprehensive tokenization functionality with a clean, Elixir-friendly API.
+
+### Core Functions
+
+#### Tokenizer Registration
+
+```elixir
+# Register all default tokenizers at once
+"Default tokenizers registered successfully" = TantivyEx.Tokenizer.register_default_tokenizers()
+# Registers: "default", "simple", "keyword", "whitespace", "raw"
+# Plus language variants: "en_stem", "fr_stem", "de_stem", etc.
+# And analyzers: "en_text" (English with stop words + stemming)
+
+# Register specific tokenizer types
+{:ok, _msg} = TantivyEx.Tokenizer.register_simple_tokenizer("my_simple")
+{:ok, _msg} = TantivyEx.Tokenizer.register_whitespace_tokenizer("my_whitespace")
+{:ok, _msg} = TantivyEx.Tokenizer.register_regex_tokenizer("email", "\\b[\\w._%+-]+@[\\w.-]+\\.[A-Z|a-z]{2,}\\b")
+{:ok, _msg} = TantivyEx.Tokenizer.register_ngram_tokenizer("fuzzy", 2, 4, false)
+```
+
+#### Advanced Text Analyzers
+
+```elixir
+# Full-featured text analyzer with all filters
+{:ok, _msg} = TantivyEx.Tokenizer.register_text_analyzer(
+  "english_complete",     # name
+  "simple",               # base tokenizer ("simple" or "whitespace")
+  true,                   # lowercase filter
+  "english",              # stop words language (or nil)
+  "english",              # stemming language (or nil)
+  50                      # max token length (or nil)
+)
+
+# Language-specific convenience functions (Elixir wrapper functions)
+{:ok, _msg} = TantivyEx.Tokenizer.register_language_analyzer("french")  # -> "french_text"
+{:ok, _msg} = TantivyEx.Tokenizer.register_stemming_tokenizer("german") # -> "german_stem"
+```
+
+#### Tokenization Operations
+
+```elixir
+# Basic tokenization
+tokens = TantivyEx.Tokenizer.tokenize_text("default", "Hello world!")
+# ["hello", "world"]
+
+# Detailed tokenization with positions
+detailed = TantivyEx.Tokenizer.tokenize_text_detailed("simple", "Hello World")
+# [{"hello", 0, 5}, {"world", 6, 11}]
+
+# List all registered tokenizers
+available = TantivyEx.Tokenizer.list_tokenizers()
+# ["default", "simple", "keyword", "whitespace", ...]
+
+# Process pre-tokenized text
+result = TantivyEx.Tokenizer.process_pre_tokenized_text(["pre", "tokenized", "words"])
+```
+
+#### Performance Testing
+
+```elixir
+# Benchmark tokenizer performance
+{final_tokens, avg_microseconds} = TantivyEx.Tokenizer.benchmark_tokenizer(
+  "default",
+  "Sample text to tokenize",
+  1000  # iterations
+)
+```
 
 ## Understanding Tokenizers
 
@@ -292,6 +386,238 @@ end
 MyApp.TokenizerDemo.demonstrate_tokenizers()
 ```
 
+## Tokenizer Management
+
+TantivyEx provides comprehensive tokenizer management capabilities through the native interface, allowing you to register, configure, and enumerate tokenizers dynamically.
+
+### Registering Custom Tokenizers
+
+#### Default Tokenizers
+
+The most convenient way to set up commonly used tokenizers is with the default registration:
+
+```elixir
+# Register all default tokenizers at once
+message = TantivyEx.Tokenizer.register_default_tokenizers()
+IO.puts(message)  # "Default tokenizers registered successfully"
+
+# This registers: "default", "simple", "keyword", "whitespace", "raw",
+# plus language-specific variants like "en_stem", "fr_stem", etc.
+```
+
+#### Individual Tokenizer Registration
+
+For more granular control, register tokenizers individually:
+
+```elixir
+# Simple tokenizer - splits on punctuation and whitespace
+{:ok, msg} = TantivyEx.Tokenizer.register_simple_tokenizer("my_simple")
+
+# Whitespace tokenizer - splits only on whitespace
+{:ok, msg} = TantivyEx.Tokenizer.register_whitespace_tokenizer("my_whitespace")
+
+# Regex tokenizer - custom splitting pattern
+{:ok, msg} = TantivyEx.Tokenizer.register_regex_tokenizer("my_regex", "\\w+")
+
+# N-gram tokenizer - fixed-size character sequences
+{:ok, msg} = TantivyEx.Tokenizer.register_ngram_tokenizer("my_ngram", 2, 3, false)
+```
+
+#### Advanced Text Analyzers
+
+For sophisticated text processing with filters and stemming:
+
+```elixir
+# English text analyzer with full processing
+{:ok, msg} = TantivyEx.Tokenizer.register_text_analyzer(
+  "english_full",     # name
+  "simple",           # base tokenizer
+  true,               # lowercase
+  "english",          # stop words language
+  "english",          # stemming language
+  true                # remove long tokens
+)
+
+# Multi-language support
+languages = ["english", "french", "german", "spanish"]
+for language <- languages do
+  TantivyEx.Tokenizer.register_text_analyzer(
+    "#{language}_analyzer",
+    "simple",
+    true,
+    language,
+    language,
+    true
+  )
+end
+```
+
+### Listing Available Tokenizers
+
+**New in v0.2.0:** You can now enumerate all registered tokenizers to verify configuration or implement dynamic tokenizer selection:
+
+```elixir
+# List all currently registered tokenizers
+tokenizers = TantivyEx.Tokenizer.list_tokenizers()
+IO.inspect(tokenizers)
+# ["default", "simple", "keyword", "whitespace", "en_stem", "fr_stem", ...]
+
+# Check if a specific tokenizer is available
+if "my_custom" in TantivyEx.Tokenizer.list_tokenizers() do
+  IO.puts("Custom tokenizer is available")
+else
+  # Register it if missing
+  TantivyEx.Tokenizer.register_simple_tokenizer("my_custom")
+end
+```
+
+### Dynamic Tokenizer Configuration
+
+Build tokenizer configurations based on runtime requirements:
+
+```elixir
+defmodule MyApp.TokenizerConfig do
+  alias TantivyEx.Tokenizer
+
+  def setup_for_language(language) do
+    # Register default tokenizers first
+    Tokenizer.register_default_tokenizers()
+
+    # Check what's available
+    available = Tokenizer.list_tokenizers()
+    IO.puts("Available tokenizers: #{inspect(available)}")
+
+    # Add language-specific configuration
+    case language do
+      "en" -> setup_english_tokenizers()
+      "es" -> setup_spanish_tokenizers()
+      "multi" -> setup_multilingual_tokenizers()
+      _ -> :ok
+    end
+
+    # Verify final configuration
+    final_tokenizers = TantivyEx.Tokenizer.list_tokenizers()
+    IO.puts("Final tokenizer count: #{length(final_tokenizers)}")
+  end
+
+  defp setup_english_tokenizers do
+    TantivyEx.Tokenizer.register_text_analyzer("en_blog", "simple", true, "english", "english", true)
+    TantivyEx.Tokenizer.register_text_analyzer("en_legal", "simple", true, "english", nil, false)
+    TantivyEx.Tokenizer.register_regex_tokenizer("en_email", "[\\w\\._%+-]+@[\\w\\.-]+\\.[A-Za-z]{2,}")
+  end
+
+  defp setup_spanish_tokenizers do
+    TantivyEx.Tokenizer.register_text_analyzer("es_content", "simple", true, "spanish", "spanish", true)
+    TantivyEx.Tokenizer.register_regex_tokenizer("es_phone", "\\+?[0-9]{2,3}[\\s-]?[0-9]{3}[\\s-]?[0-9]{3}[\\s-]?[0-9]{3}")
+  end
+
+  defp setup_multilingual_tokenizers do
+    # Minimal processing for multi-language content
+    TantivyEx.Tokenizer.register_simple_tokenizer("multi_simple")
+    TantivyEx.Tokenizer.register_whitespace_tokenizer("multi_whitespace")
+  end
+end
+```
+
+### Testing Tokenizers
+
+Verify tokenizer behavior before using in production schemas:
+
+```elixir
+defmodule MyApp.TokenizerTester do
+  alias TantivyEx.Tokenizer
+
+  def test_tokenizer_suite do
+    # Register all tokenizers
+    Tokenizer.register_default_tokenizers()
+
+    test_text = "Hello World! This is a TEST email: user@example.com"
+
+    # Test each available tokenizer
+    Tokenizer.list_tokenizers()
+    |> Enum.each(fn tokenizer_name ->
+      IO.puts("\n--- Testing: #{tokenizer_name} ---")
+
+      case Tokenizer.tokenize_text(tokenizer_name, test_text) do
+        {:ok, tokens} ->
+          IO.puts("Tokens: #{inspect(tokens)}")
+          IO.puts("Count: #{length(tokens)}")
+
+        {:error, reason} ->
+          IO.puts("Error: #{reason}")
+      end
+    end)
+  end
+
+  def compare_tokenizers(text, tokenizer_names) do
+    results =
+      tokenizer_names
+      |> Enum.map(fn name ->
+        try do
+          tokens = TantivyEx.Tokenizer.tokenize_text(name, text)
+          {name, tokens}
+        rescue
+          _ -> {name, :error}
+        end
+      end)
+      |> Enum.filter(fn {_, tokens} -> tokens != :error end)
+
+    IO.puts("\nTokenization Comparison for: \"#{text}\"")
+    IO.puts(String.duplicate("-", 60))
+
+    Enum.each(results, fn {name, tokens} ->
+      IO.puts("#{String.pad_trailing(name, 15)}: #{inspect(tokens)}")
+    end)
+
+    results
+  end
+end
+
+# Usage
+MyApp.TokenizerTester.test_tokenizer_suite()
+MyApp.TokenizerTester.compare_tokenizers(
+  "user@example.com",
+  ["default", "simple", "whitespace", "keyword"]
+)
+```
+
+### Error Handling
+
+Handle tokenizer registration and usage errors gracefully:
+
+```elixir
+defmodule MyApp.SafeTokenizers do
+  alias TantivyEx.Tokenizer
+
+  def safe_register_analyzer(name, config) do
+    case Tokenizer.register_text_analyzer(
+      name,
+      config[:base] || "simple",
+      config[:lowercase] || true,
+      config[:stop_words],
+      config[:stemming],
+      config[:remove_long]
+    ) do
+      {:ok, message} ->
+        {:ok, message}
+
+      {:error, reason} ->
+        Logger.warning("Failed to register tokenizer #{name}: #{reason}")
+        {:error, reason}
+    end
+  end
+
+  def ensure_tokenizer_exists(name) do
+    if name in TantivyEx.Tokenizer.list_tokenizers() do
+      :ok
+    else
+      Logger.info("Tokenizer #{name} not found, registering default")
+      TantivyEx.Tokenizer.register_simple_tokenizer(name)
+    end
+  end
+end
+```
+
 ## Tokenizer Selection Guide
 
 ### Decision Matrix
@@ -381,11 +707,58 @@ MyApp.TokenizerDemo.demonstrate_tokenizers()
 {:ok, schema} = Schema.add_text_field_with_tokenizer(schema, "request_url", :text, "simple")
 ```
 
-## Advanced Text Processing
+### Multi-Language Support
 
-### Language-Specific Considerations
+**New in v0.2.0:** TantivyEx provides built-in support for 17+ languages with language-specific stemming and stop word filtering.
 
-While TantivyEx uses Tantivy's built-in tokenizers, understanding language-specific requirements helps in tokenizer selection:
+#### Supported Languages
+
+| Language | Code | Stemming | Stop Words | Convenience Function |
+|----------|------|----------|------------|---------------------|
+| English | `"en"` / `"english"` | ✅ | ✅ | `register_language_analyzer("english")` |
+| French | `"fr"` / `"french"` | ✅ | ✅ | `register_language_analyzer("french")` |
+| German | `"de"` / `"german"` | ✅ | ✅ | `register_language_analyzer("german")` |
+| Spanish | `"es"` / `"spanish"` | ✅ | ✅ | `register_language_analyzer("spanish")` |
+| Italian | `"it"` / `"italian"` | ✅ | ✅ | `register_language_analyzer("italian")` |
+| Portuguese | `"pt"` / `"portuguese"` | ✅ | ✅ | `register_language_analyzer("portuguese")` |
+| Russian | `"ru"` / `"russian"` | ✅ | ✅ | `register_language_analyzer("russian")` |
+| Arabic | `"ar"` / `"arabic"` | ✅ | ✅ | `register_language_analyzer("arabic")` |
+| Danish | `"da"` / `"danish"` | ✅ | ✅ | `register_language_analyzer("danish")` |
+| Dutch | `"nl"` / `"dutch"` | ✅ | ✅ | `register_language_analyzer("dutch")` |
+| Finnish | `"fi"` / `"finnish"` | ✅ | ✅ | `register_language_analyzer("finnish")` |
+| Greek | `"el"` / `"greek"` | ✅ | ✅ | `register_language_analyzer("greek")` |
+| Hungarian | `"hu"` / `"hungarian"` | ✅ | ✅ | `register_language_analyzer("hungarian")` |
+| Norwegian | `"no"` / `"norwegian"` | ✅ | ✅ | `register_language_analyzer("norwegian")` |
+| Romanian | `"ro"` / `"romanian"` | ✅ | ✅ | `register_language_analyzer("romanian")` |
+| Swedish | `"sv"` / `"swedish"` | ✅ | ✅ | `register_language_analyzer("swedish")` |
+| Tamil | `"ta"` / `"tamil"` | ✅ | ✅ | `register_language_analyzer("tamil")` |
+| Turkish | `"tr"` / `"turkish"` | ✅ | ✅ | `register_language_analyzer("turkish")` |
+
+#### Language-Specific Usage
+
+```elixir
+# Complete language analyzer (lowercase + stop words + stemming)
+TantivyEx.Tokenizer.register_language_analyzer("english")
+# Creates "english_text" tokenizer
+
+# Stemming only
+TantivyEx.Tokenizer.register_stemming_tokenizer("french")
+# Creates "french_stem" tokenizer
+
+# Custom language configuration
+TantivyEx.Tokenizer.register_text_analyzer(
+  "german_custom",
+  "simple",
+  true,        # lowercase
+  "german",    # stop words
+  "german",    # stemming
+  100          # max token length
+)
+```
+
+### Advanced Text Analyzers
+
+Text analyzers provide the most sophisticated text processing by chaining multiple filters:
 
 ```elixir
 defmodule MyApp.LanguageAwareSchema do

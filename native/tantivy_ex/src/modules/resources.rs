@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::{Arc, Mutex};
 use tantivy::schema::{OwnedValue, Schema};
+use tantivy::tokenizer::TokenizerManager;
 use tantivy::{query::QueryParser, Index, IndexWriter};
 
 // Resource types for managing state
@@ -35,6 +36,10 @@ pub struct QueryParserResource {
     pub parser: QueryParser,
 }
 
+pub struct TokenizerManagerResource {
+    pub manager: TokenizerManager,
+}
+
 // Make SearcherResource safe for unwind
 unsafe impl Send for SearcherResource {}
 unsafe impl Sync for SearcherResource {}
@@ -50,6 +55,11 @@ unsafe impl Send for QueryParserResource {}
 unsafe impl Sync for QueryParserResource {}
 impl RefUnwindSafe for QueryParserResource {}
 impl UnwindSafe for QueryParserResource {}
+
+unsafe impl Send for TokenizerManagerResource {}
+unsafe impl Sync for TokenizerManagerResource {}
+impl RefUnwindSafe for TokenizerManagerResource {}
+impl UnwindSafe for TokenizerManagerResource {}
 
 // Helper function to convert serde_json::Value to BTreeMap<String, OwnedValue>
 pub fn convert_json_value_to_btreemap(value: serde_json::Value) -> BTreeMap<String, OwnedValue> {

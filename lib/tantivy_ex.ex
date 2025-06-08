@@ -26,6 +26,19 @@ defmodule TantivyEx do
       # Search
       {:ok, searcher} = TantivyEx.Searcher.new(index)
       {:ok, results} = TantivyEx.Searcher.search(searcher, "hello", 10)
+
+  ## Advanced Tokenization
+
+      # Register custom tokenizers
+      TantivyEx.Tokenizer.register_default_tokenizers()
+      TantivyEx.Tokenizer.register_language_analyzer("en")
+
+      # Use custom tokenizers in schema
+      schema = TantivyEx.Schema.add_text_field_with_tokenizer(schema, "content", "TEXT", "en_text")
+
+      # Test tokenization
+      tokens = TantivyEx.Tokenizer.tokenize_text("en_stem", "running quickly")
+      # Returns: ["run", "quickli"]
   """
 
   @doc """

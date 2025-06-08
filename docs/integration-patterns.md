@@ -179,12 +179,12 @@ defmodule MyApp.SearchService do
   defp create_schema do
     alias TantivyEx.Schema
 
-    {:ok, schema} = Schema.new()
-    {:ok, schema} = Schema.add_text_field(schema, "title", :text_stored)
-    {:ok, schema} = Schema.add_text_field(schema, "content", :text)
-    {:ok, schema} = Schema.add_text_field(schema, "author", :text_stored)
-    {:ok, schema} = Schema.add_u64_field(schema, "timestamp", :fast_stored)
-    {:ok, schema} = Schema.add_facet_field(schema, "category", :facet)
+    schema = Schema.new()
+    schema = Schema.add_text_field(schema, "title", :text_stored)
+    schema = Schema.add_text_field(schema, "content", :text)
+    schema = Schema.add_text_field(schema, "author", :text_stored)
+    schema = Schema.add_u64_field(schema, "timestamp", :fast_stored)
+    schema = Schema.add_facet_field(schema, "category", :facet)
     {:ok, schema}
   end
 

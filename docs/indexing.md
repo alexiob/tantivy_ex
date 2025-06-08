@@ -54,9 +54,9 @@ Understanding the difference between indexing and storing is crucial:
 
 ```elixir
 # Examples of different field configurations
-{:ok, schema} = Schema.add_text_field(schema, "searchable_only", :text)      # Index only
-{:ok, schema} = Schema.add_text_field(schema, "display_only", :stored)      # Store only
-{:ok, schema} = Schema.add_text_field(schema, "full_featured", :text_stored) # Both
+schema = Schema.add_text_field(schema, "searchable_only", :text)      # Index only
+schema = Schema.add_text_field(schema, "display_only", :stored)      # Store only
+schema = Schema.add_text_field(schema, "full_featured", :text_stored) # Both
 ```
 
 ## Basic Indexing Operations
@@ -67,11 +67,11 @@ Understanding the difference between indexing and storing is crucial:
 alias TantivyEx.{Index, Schema}
 
 # 1. Design your schema
-{:ok, schema} = Schema.new()
-{:ok, schema} = Schema.add_text_field(schema, "title", :text_stored)
-{:ok, schema} = Schema.add_text_field(schema, "content", :text)
-{:ok, schema} = Schema.add_u64_field(schema, "timestamp", :fast_stored)
-{:ok, schema} = Schema.add_f64_field(schema, "rating", :fast_stored)
+schema = Schema.new()
+schema = Schema.add_text_field(schema, "title", :text_stored)
+schema = Schema.add_text_field(schema, "content", :text)
+schema = Schema.add_u64_field(schema, "timestamp", :fast_stored)
+schema = Schema.add_f64_field(schema, "rating", :fast_stored)
 
 # 2. Create index (choose disk or memory)
 # For production - persistent disk storage

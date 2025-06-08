@@ -5,9 +5,51 @@ All notable changes to TantivyEx will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2025-06-07
 
 ### Added
+
+#### Comprehensive Tokenizer System (New in v0.2.0)
+
+- **Complete tokenizer module** - `TantivyEx.Tokenizer` with full-featured text analysis capabilities
+- **Multiple tokenizer types** - Simple, whitespace, regex, n-gram, and text analyzer tokenizers
+- **Advanced text analyzers** - Configurable text processing with lowercase, stop words, stemming, and length filtering
+- **Multi-language support** - Built-in support for 17+ languages including English, French, German, Spanish, Italian, Portuguese, Russian, Arabic, Danish, Dutch, Finnish, Greek, Hungarian, Norwegian, Romanian, Swedish, Tamil, and Turkish
+- **Dynamic tokenizer registration** - Runtime registration and management of custom tokenizers
+- **Tokenizer enumeration** - `list_tokenizers/0` function to discover available tokenizers
+- **Detailed tokenization** - Position-aware tokenization with start/end offsets
+- **Pre-tokenized text support** - Process already tokenized text for custom workflows
+- **Performance benchmarking** - Built-in tokenizer performance testing capabilities
+- **Language-specific analyzers** - Convenience functions for common language configurations
+- **Concurrent tokenization** - Thread-safe tokenizer operations with global manager
+- **Comprehensive error handling** - Detailed error messages for invalid configurations
+- **Production-ready defaults** - Sensible default tokenizer configurations for common use cases
+
+#### Tokenizer API Functions
+
+- `register_default_tokenizers/0` - Register commonly used tokenizers
+- `register_simple_tokenizer/1` - Basic punctuation and whitespace splitting
+- `register_whitespace_tokenizer/1` - Whitespace-only splitting with case preservation
+- `register_regex_tokenizer/2` - Custom regex pattern-based tokenization
+- `register_ngram_tokenizer/4` - Character or word n-gram generation
+- `register_text_analyzer/6` - Advanced text processing with filters
+- `list_tokenizers/0` - Enumerate all registered tokenizers
+- `tokenize_text/2` - Basic text tokenization
+- `tokenize_text_detailed/2` - Tokenization with position information
+- `process_pre_tokenized_text/1` - Handle pre-tokenized input
+- `register_stemming_tokenizer/1` - Language-specific stemming
+- `register_language_analyzer/1` - Complete language analysis pipeline
+- `benchmark_tokenizer/3` - Performance testing utilities
+
+#### Advanced Text Processing Features
+
+- **Stemming algorithms** - Language-specific word reduction with support for major languages
+- **Stop word filtering** - Configurable stop word removal for improved search quality
+- **Case normalization** - Intelligent lowercase conversion preserving language-specific rules
+- **Length filtering** - Configurable token length limits to prevent indexing issues
+- **Unicode support** - Full Unicode text processing with proper character handling
+- **Special character handling** - Configurable punctuation and symbol processing
+- **Compound word support** - Language-aware word boundary detection
 
 #### Document Operations (Complete Implementation)
 

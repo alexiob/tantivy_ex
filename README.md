@@ -15,7 +15,9 @@ TantivyEx provides a complete, type-safe interface to Tantivy - Rust's fastest f
 
 - **High Performance**: Built on Tantivy, one of the fastest search engines available
 - **Complete Field Type Support**: Text, numeric, boolean, date, facet, bytes, JSON, and IP address fields
-- **Advanced Text Processing**: Custom tokenizers, stemming, stop words, and more
+- **Advanced Text Processing**: Comprehensive tokenizer system with 17+ language support, custom regex patterns, n-grams, and configurable text analyzers
+- **Intelligent Text Analysis**: Stemming, stop word filtering, case normalization, and language-specific processing
+- **Dynamic Tokenizer Management**: Runtime tokenizer registration, enumeration, and configuration
 - **Schema Management**: Dynamic schema building with validation and introspection
 - **Flexible Storage**: In-memory or persistent disk-based indexes
 - **Type Safety**: Full Elixir typespecs and compile-time safety
@@ -24,10 +26,13 @@ TantivyEx provides a complete, type-safe interface to Tantivy - Rust's fastest f
 ## Quick Start
 
 ```elixir
-# Create a schema
+# Register tokenizers (recommended for production)
+TantivyEx.Tokenizer.register_default_tokenizers()
+
+# Create a schema with custom tokenizers
 schema = TantivyEx.Schema.new()
-|> TantivyEx.Schema.add_text_field("title", :text_stored)
-|> TantivyEx.Schema.add_text_field("body", :text)
+|> TantivyEx.Schema.add_text_field_with_tokenizer("title", :text_stored, "default")
+|> TantivyEx.Schema.add_text_field_with_tokenizer("body", :text, "default")
 |> TantivyEx.Schema.add_u64_field("id", :indexed_stored)
 |> TantivyEx.Schema.add_date_field("published_at", :fast)
 
@@ -125,17 +130,56 @@ TantivyEx supports all Tantivy field types with comprehensive options:
 
 ## Custom Tokenizers
 
-TantivyEx supports custom tokenizers for advanced text processing:
+**New in v0.2.0:** TantivyEx now provides comprehensive tokenizer support with advanced text analysis capabilities:
 
 ```elixir
-# Add a field with a custom tokenizer
-schema = TantivyEx.Schema.new()
-|> TantivyEx.Schema.add_text_field_with_tokenizer("content", :text, "en_stem")
-|> TantivyEx.Schema.add_text_field_with_tokenizer("ngram_search", :text, "ngram_3")
+# Register default tokenizers (recommended starting point)
+TantivyEx.Tokenizer.register_default_tokenizers()
 
-# Built-in tokenizers: "default", "raw", "en_stem", "whitespace"
-# Custom tokenizers can be registered with the index's TokenizerManager
+# Create custom text analyzers with advanced processing
+TantivyEx.Tokenizer.register_text_analyzer(
+  "english_full",
+  "simple",           # base tokenizer
+  true,               # lowercase
+  "english",          # stop words language
+  "english",          # stemming language
+  50                  # remove tokens longer than 50 chars
+)
+
+# Register specialized tokenizers for different use cases
+TantivyEx.Tokenizer.register_regex_tokenizer("email", "\\b[\\w._%+-]+@[\\w.-]+\\.[A-Z|a-z]{2,}\\b")
+TantivyEx.Tokenizer.register_ngram_tokenizer("fuzzy_search", 2, 4, false)
+
+# Add fields with specific tokenizers
+schema = TantivyEx.Schema.new()
+|> TantivyEx.Schema.add_text_field_with_tokenizer("content", :text, "english_full")
+|> TantivyEx.Schema.add_text_field_with_tokenizer("product_code", :text_stored, "simple")
+|> TantivyEx.Schema.add_text_field_with_tokenizer("tags", :text, "whitespace")
 ```
+
+### Available Tokenizer Types
+
+- **Simple Tokenizer**: Basic punctuation and whitespace splitting with lowercase normalization
+- **Whitespace Tokenizer**: Splits only on whitespace, preserves case and punctuation
+- **Regex Tokenizer**: Custom pattern-based tokenization for specialized formats
+- **N-gram Tokenizer**: Character or word n-grams for fuzzy search and autocomplete
+- **Text Analyzer**: Advanced processing with configurable filters (stemming, stop words, case normalization)
+
+### Multi-Language Support
+
+Built-in support for 17+ languages with language-specific stemming and stop words:
+
+```elixir
+# Language-specific analyzers
+TantivyEx.Tokenizer.register_language_analyzer("english")  # -> "english_text"
+TantivyEx.Tokenizer.register_language_analyzer("french")   # -> "french_text"
+TantivyEx.Tokenizer.register_language_analyzer("german")   # -> "german_text"
+
+# Or just stemming
+TantivyEx.Tokenizer.register_stemming_tokenizer("spanish") # -> "spanish_stem"
+```
+
+**Supported languages**: English, French, German, Spanish, Italian, Portuguese, Russian, Arabic, Danish, Dutch, Finnish, Greek, Hungarian, Norwegian, Romanian, Swedish, Tamil, Turkish
 
 ## Performance Tips
 
@@ -143,7 +187,13 @@ schema = TantivyEx.Schema.new()
 2. **Leverage fast fields**: Use `:fast` for sorting and aggregations
 3. **Batch operations**: Commit documents in batches for better performance
 4. **Memory management**: Tune writer memory budget based on your use case
-5. **Custom tokenizers**: Choose tokenizers that match your search requirements
+5. **Choose optimal tokenizers**: Match tokenizers to your search requirements
+   - Use `"default"` for natural language content with stemming
+   - Use `"simple"` for structured data like product codes
+   - Use `"whitespace"` for tag fields and technical terms
+   - Use `"keyword"` for exact matching fields
+6. **Language-specific optimization**: Use language analyzers for better search quality
+7. **Register tokenizers once**: Call `register_default_tokenizers()` at application startup
 
 ## Examples
 
@@ -163,11 +213,15 @@ schema = TantivyEx.Schema.new()
 ### Blog Search
 
 ```elixir
-# Blog post schema with custom tokenizers
+# Setup tokenizers for blog content
+TantivyEx.Tokenizer.register_default_tokenizers()
+TantivyEx.Tokenizer.register_language_analyzer("english")
+
+# Blog post schema with optimized tokenizers
 schema = TantivyEx.Schema.new()
-|> TantivyEx.Schema.add_text_field_with_tokenizer("title", :text_stored, "en_stem")
-|> TantivyEx.Schema.add_text_field_with_tokenizer("content", :text, "en_stem")
-|> TantivyEx.Schema.add_text_field("tags", :text_stored)
+|> TantivyEx.Schema.add_text_field_with_tokenizer("title", :text_stored, "english_text")
+|> TantivyEx.Schema.add_text_field_with_tokenizer("content", :text, "english_text")
+|> TantivyEx.Schema.add_text_field_with_tokenizer("tags", :text_stored, "whitespace")
 |> TantivyEx.Schema.add_date_field("published_at", :fast_stored)
 |> TantivyEx.Schema.add_u64_field("author_id", :fast)
 ```
