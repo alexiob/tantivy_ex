@@ -8,6 +8,7 @@ A comprehensive collection of guides to help you get the most out of TantivyEx, 
 - **Want to try it out?** Jump to [Quick Start Tutorial](quick-start.md)
 - **Need to understand the basics?** Read [Core Concepts](core-concepts.md)
 - **Want analytics and reporting?** Explore [Aggregations](aggregations.md)
+- **Need horizontal scaling?** Check out [Distributed Search](otp-distributed-implementation.md)
 - **Performance issues?** Check [Performance Tuning](performance-tuning.md)
 - **Going to production?** Review [Production Deployment](production-deployment.md)
 - **Building integrations?** Explore [Integration Patterns](integration-patterns.md)
@@ -94,6 +95,20 @@ Comprehensive guide to data aggregation and analytics using TantivyEx. Learn how
 - Performance optimization for large datasets
 - Real-world examples and use cases
 
+#### [Distributed Search](otp-distributed-implementation.md
+
+Complete guide to distributed search capabilities in TantivyEx. Learn how to coordinate search operations across multiple nodes, implement load balancing, and scale horizontally.
+
+**Key Topics:**
+
+- Distributed search coordinator setup
+- Node management and load balancing
+- Result merging strategies
+- Cluster health monitoring
+- Failover and error handling
+- Performance optimization for distributed environments
+- Integration patterns with Phoenix and GenServer
+
 #### [Integration Patterns](integration-patterns.md)
 
 Advanced patterns for integrating TantivyEx with web frameworks, databases, and other systems. Learn about real-time indexing, distributed search, and complex architectures.
@@ -118,6 +133,7 @@ Advanced patterns for integrating TantivyEx with web frameworks, databases, and 
 - [Search Results](search_results.md)
 - [Tokenizers](tokenizers.md)
 - [Aggregations](aggregations.md)
+- [OTP Distributed Search](otp-distributed-implementation.md)
 
 ### Community & Support
 

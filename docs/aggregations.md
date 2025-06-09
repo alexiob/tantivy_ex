@@ -118,7 +118,7 @@ Documents → Bucket Grouping → Metric Calculation → Results
 )
 ```
 
-#### Helper Functions
+#### Basic Helper Usage
 
 ```elixir
 # Build terms aggregation

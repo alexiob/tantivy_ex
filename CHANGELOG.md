@@ -5,6 +5,90 @@ All notable changes to TantivyEx will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-06-09
+
+### Fixed
+
+#### Test Reliability and Code Quality
+
+- **Fixed distributed OTP test race condition** - Resolved race condition in "OTP coordinator can be started and stopped" test by changing from `async: true` to `async: false` to prevent concurrent test interference
+- **Enhanced OTP coordinator termination** - Improved `stop()` function in `TantivyEx.Distributed.OTP` with proper waiting logic using `wait_for_termination/2` and comprehensive termination checking
+- **Eliminated all compiler warnings** - Fixed 7 compiler warnings across multiple files:
+  - **coordinator.ex**: Fixed unused task variables and removed unreachable code clause
+  - **search_node.ex**: Fixed unused parameters (`endpoint`, `schema`), removed unused `Index` alias, and replaced undefined `Query.create/1` with proper health check implementation
+- **Improved test output clarity** - Added `Logger.configure(level: :warning)` to `test/test_helper.exs` to suppress info logs during test execution for cleaner output
+
+#### Documentation Accuracy
+
+- **Corrected field types table** - Updated README.md field types table to accurately reflect all supported options:
+  - **Text fields**: Added missing `:fast` and `:fast_stored` options
+  - **Numeric types**: Added missing `:fast_stored` option for U64, I64, F64, Bool, Date, Bytes, and IP Address fields
+  - **JSON fields**: Corrected options from incorrect `:indexed`, `:stored` to proper `:text`, `:text_stored`, `:stored`
+- **Fixed function reference in quick-start guide** - Replaced non-existent function reference with proper faceted search example using `TantivyEx.Query.parser/2` and `TantivyEx.Query.parse/2`
+- **Fixed duplicate section headers in tokenizers guide** - Resolved duplicate "Advanced Text Analyzers" section headers in `docs/tokenizers.md` by renaming them to unique, descriptive titles:
+  - Renamed first instance to "Text Analyzers" (basic text analyzer registration)
+  - Renamed second instance to "Multi-Language Text Analyzers" (sophisticated multi-language processing)
+  - Kept the main comprehensive section as "Advanced Text Analyzers"
+- **Fixed duplicate section headers in aggregations guide** - Resolved duplicate "Helper Functions" section headers in `docs/aggregations.md` by renaming the basic usage section to "Basic Helper Usage" to distinguish it from the comprehensive "Helper Functions" section
+- **Removed deprecated distributed search module** - Cleaned up `lib/tantivy_ex/distributed.ex` and updated all documentation to use only the OTP-based distributed search API (`TantivyEx.Distributed.OTP`)
+
+### Enhanced
+
+#### Test Coverage and Robustness
+
+- **Comprehensive distributed OTP test suite** - Added 15 new test cases (150% increase) covering advanced distributed search scenarios:
+  - Complex multi-field boolean queries with AND/OR operations
+  - Range queries across distributed nodes with various data types
+  - Phrase and fuzzy queries for sophisticated text matching
+  - Pagination testing with different page sizes and offsets
+  - Multiple merge strategies (score_desc, score_asc, node_order, round_robin)
+  - Concurrent search operations and thread safety validation
+  - Weighted load balancing with custom node weights
+  - Edge cases including malformed queries and empty result handling
+  - Node health monitoring and recovery scenarios
+  - Large result sets and memory efficiency testing
+  - Query optimization and caching behavior validation
+  - Performance metrics and statistics collection verification
+
+#### Code Quality and Reliability
+
+- **Enhanced termination handling** - Improved coordinator shutdown process with proper timeout handling and graceful termination waiting
+- **Better error handling** - Enhanced error messages and validation throughout distributed search components
+- **Optimized test execution** - Improved test reliability by preventing race conditions in distributed system tests
+
+### Documentation
+
+- **Verified API consistency** - Conducted comprehensive verification of documentation examples against current API implementations to ensure accuracy
+- **Updated field configuration reference** - Enhanced field types documentation to match actual implementation capabilities
+- **Improved quick-start examples** - Updated examples to use correct function signatures and available APIs
+
+## [0.3.0] - 2025-06-08
+
+### Added
+
+#### Distributed Search System (New in v0.3.0)
+
+- **Complete OTP-based distributed search system** - `TantivyEx.Distributed.OTP` for coordinating search operations across multiple Tantivy instances using proper Elixir/OTP patterns
+- **Multi-node coordination** - Support for adding, removing, and managing search nodes with unique identifiers and endpoints
+- **Advanced load balancing** - Multiple strategies including round-robin, weighted round-robin, least connections, and health-based routing
+- **Intelligent result merging** - Configurable merge strategies (score_desc, score_asc, node_order, round_robin) for optimal result ranking
+- **Comprehensive configuration** - Timeout settings, retry policies, and distributed behavior customization
+- **Cluster health monitoring** - Built-in cluster and individual node health checking capabilities
+- **Performance statistics** - Detailed performance metrics and statistics collection for distributed operations
+- **Graceful error handling** - Robust error handling with failover support and partial failure recovery
+- **Local distributed simulation** - Support for testing distributed scenarios with multiple local searchers
+- **Node weight management** - Flexible node weighting for capacity-based load distribution
+- **Active/inactive node states** - Dynamic node status management for maintenance and failover scenarios
+- **JSON response parsing** - Structured response parsing with detailed node-level information
+- **Comprehensive documentation** - Complete guide covering setup, configuration, monitoring, and best practices
+- **Production-ready patterns** - Integration examples with Phoenix, GenServer, and real-world monitoring strategies
+
+### Documentation
+
+- **New distributed search guide** - Complete documentation covering all aspects of distributed search implementation
+- **Updated README** - Added distributed search examples and performance recommendations
+- **Enhanced guides index** - Integrated distributed search into the main documentation structure
+
 ## [0.2.0] - 2025-06-07
 
 ### Added

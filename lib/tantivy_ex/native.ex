@@ -147,10 +147,175 @@ defmodule TantivyEx.Native do
   def process_pre_tokenized_text(_tokens), do: :erlang.nif_error(:nif_not_loaded)
   def register_default_tokenizers(), do: :erlang.nif_error(:nif_not_loaded)
 
+  # Facet functions
+  def facet_collector_for_field(_field_name), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_collector_add_facet(_collector, _facet_path), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_search(_searcher, _query, _collector), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_term_query(_field_name, _facet_path), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_multi_query(_field_name, _facet_paths, _occur), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_from_text(_facet_path), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_to_string(_facet), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Merge Policy functions
+  def log_merge_policy_new(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def log_merge_policy_with_options(
+        _min_num_segments,
+        _max_docs_before_merge,
+        _min_layer_size,
+        _level_log_size,
+        _del_docs_ratio_before_merge
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  def no_merge_policy_new(), do: :erlang.nif_error(:nif_not_loaded)
+  def index_writer_set_merge_policy(_writer, _policy), do: :erlang.nif_error(:nif_not_loaded)
+  def index_writer_get_merge_policy_info(_writer), do: :erlang.nif_error(:nif_not_loaded)
+  def index_writer_merge_segments(_writer, _segment_ids), do: :erlang.nif_error(:nif_not_loaded)
+  def index_writer_wait_merging_threads(_writer), do: :erlang.nif_error(:nif_not_loaded)
+  def index_get_searchable_segment_ids(_index), do: :erlang.nif_error(:nif_not_loaded)
+  def index_get_num_segments(_index), do: :erlang.nif_error(:nif_not_loaded)
+
   # Aggregation functions
   def run_aggregations(_searcher, _query, _aggregations_json),
     do: :erlang.nif_error(:nif_not_loaded)
 
   def run_search_with_aggregations(_searcher, _query, _aggregations_json, _search_limit),
     do: :erlang.nif_error(:nif_not_loaded)
+
+  # Index Warming functions
+  def index_warming_new(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def index_warming_configure(
+        _warming,
+        _cache_size_mb,
+        _ttl_seconds,
+        _strategy,
+        _eviction_policy,
+        _background_warming
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  def index_warming_add_preload_queries(_warming, _queries),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def index_warming_warm_index(_warming, _index, _cache_key),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def index_warming_get_searcher(_warming, _cache_key), do: :erlang.nif_error(:nif_not_loaded)
+  def index_warming_evict_cache(_warming, _force_all), do: :erlang.nif_error(:nif_not_loaded)
+  def index_warming_get_stats(_warming), do: :erlang.nif_error(:nif_not_loaded)
+  def index_warming_clear_cache(_warming), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Space Analysis functions
+  def space_analysis_new(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def space_analysis_configure(
+        _analysis,
+        _include_file_details,
+        _include_field_breakdown,
+        _cache_results,
+        _cache_ttl_seconds
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  def space_analysis_analyze_index(_analysis, _index, _analysis_id),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def space_analysis_get_cached(_analysis, _analysis_id), do: :erlang.nif_error(:nif_not_loaded)
+
+  def space_analysis_compare(_analysis, _analysis_id_1, _analysis_id_2),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def space_analysis_get_recommendations(_analysis, _analysis_id),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def space_analysis_clear_cache(_analysis), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Custom Collector functions
+  def custom_collector_new(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_create_scoring_function(_collector, _name, _scoring_type, _parameters),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_create_top_k(_collector, _collector_name, _k, _scoring_function_name),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_create_aggregation(_collector, _collector_name, _aggregation_specs),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_create_filtering(_collector, _collector_name, _filter_specs),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_execute(_collector, _index_resource, _collector_name, _query_str),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_get_results(_collector, _collector_name),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_set_field_boosts(_collector, _scoring_function_name, _field_boosts),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def custom_collector_list_collectors(_collector), do: :erlang.nif_error(:nif_not_loaded)
+  def custom_collector_clear_all(_collector), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Reader Manager functions
+  def reader_manager_new(), do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_configure_monitoring(
+        _manager,
+        _track_usage_stats,
+        _track_performance,
+        _log_reload_events,
+        _alert_on_slow_reloads,
+        _slow_reload_threshold_ms
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_create_policy(
+        _manager,
+        _policy_name,
+        _policy_type,
+        _max_age_seconds,
+        _check_interval_seconds,
+        _auto_reload,
+        _background_reload,
+        _preload_segments
+      ),
+      do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_create_reader(_manager, _index_resource, _reader_id, _policy_name),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_set_policy(_manager, _policy_type, _config),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_add_index(_manager, _index, _index_id),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_remove_index(_manager, _index_id), do: :erlang.nif_error(:nif_not_loaded)
+  def reader_manager_get_reader(_manager, _index_id), do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_reload_reader(_manager, _reader_id, _force_reload),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_reload_all(_manager), do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_get_reader_stats(_manager, _reader_id),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_get_reader_health(_manager, _reader_id),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_get_health(_manager), do: :erlang.nif_error(:nif_not_loaded)
+  def reader_manager_get_stats(_manager), do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_record_search(_manager, _reader_id, _search_duration_ms),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def reader_manager_list_readers(_manager), do: :erlang.nif_error(:nif_not_loaded)
+  def reader_manager_list_policies(_manager), do: :erlang.nif_error(:nif_not_loaded)
+  def reader_manager_shutdown(_manager), do: :erlang.nif_error(:nif_not_loaded)
+  def reader_manager_dispose_reader(_manager, _reader_id), do: :erlang.nif_error(:nif_not_loaded)
+  def reader_manager_clear_all(_manager), do: :erlang.nif_error(:nif_not_loaded)
 end

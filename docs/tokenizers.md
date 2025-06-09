@@ -35,11 +35,9 @@ schema = TantivyEx.Schema.new()
 - [TantivyEx.Tokenizer Module](#tantivyextokenizer-module)
 - [Understanding Tokenizers](#understanding-tokenizers)
 - [Built-in Tokenizers](#built-in-tokenizers)
-- [Custom Tokenizer Registration](#custom-tokenizer-registration)
 - [Advanced Text Analyzers](#advanced-text-analyzers)
 - [Multi-Language Support](#multi-language-support)
 - [Tokenizer Selection Guide](#tokenizer-selection-guide)
-- [Advanced Text Processing](#advanced-text-processing)
 - [Language-Specific Tokenization](#language-specific-tokenization)
 - [Performance Considerations](#performance-considerations)
 - [Real-world Examples](#real-world-examples)
@@ -67,7 +65,7 @@ schema = TantivyEx.Schema.new()
 {:ok, _msg} = TantivyEx.Tokenizer.register_ngram_tokenizer("fuzzy", 2, 4, false)
 ```
 
-#### Advanced Text Analyzers
+#### Text Analyzers
 
 ```elixir
 # Full-featured text analyzer with all filters
@@ -423,7 +421,7 @@ For more granular control, register tokenizers individually:
 {:ok, msg} = TantivyEx.Tokenizer.register_ngram_tokenizer("my_ngram", 2, 3, false)
 ```
 
-#### Advanced Text Analyzers
+#### Multi-Language Text Analyzers
 
 For sophisticated text processing with filters and stemming:
 

@@ -197,6 +197,8 @@ Explore complex queries and filters:
 # Complex boolean queries
 {:ok, results} = TantivyEx.Searcher.search(searcher, "(elixir OR phoenix) AND rating:[4.0 TO *]", 10)
 
-# Faceted search
-{:ok, results} = TantivyEx.Searcher.search_with_facets(searcher, "programming", ["category", "author"], 10)
+# Faceted search using Query module
+{:ok, parser} = TantivyEx.Query.parser(index, ["category", "author"])
+{:ok, query} = TantivyEx.Query.parse(parser, "programming")
+{:ok, results} = TantivyEx.Searcher.search(searcher, query, 10)
 ```

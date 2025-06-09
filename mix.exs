@@ -80,13 +80,27 @@ defmodule TantivyEx.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @source_url,
+      assets: %{"docs/assets" => "assets"},
       extras: [
         "README.md",
         "CHANGELOG.md",
+        "DEVELOPMENT.md",
+        "LICENSE",
+        "docs/installation-setup.md",
+        "docs/quick-start.md",
+        "docs/core-concepts.md",
+        "docs/guides.md",
         "docs/schema.md",
+        "docs/documents.md",
         "docs/indexing.md",
         "docs/search.md",
-        "docs/tokenizers.md"
+        "docs/search_results.md",
+        "docs/tokenizers.md",
+        "docs/aggregations.md",
+        "docs/otp-distributed-implementation.md",
+        "docs/integration-patterns.md",
+        "docs/performance-tuning.md",
+        "docs/production-deployment.md"
       ],
       groups_for_extras: [
         Guides: ~r/docs\/.*/
