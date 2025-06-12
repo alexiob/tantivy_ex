@@ -3,9 +3,12 @@ defmodule TantivyEx.ResourceManagerTest do
   alias TantivyEx.ResourceManager
 
   setup do
-    # Start the ResourceManager GenServer for testing
-    {:ok, _pid} = ResourceManager.start_link([])
-    :ok
+    # Start the ResourceManager GenServer for testing if not already running
+    case ResourceManager.start_link([]) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   describe "resource registration and tracking" do
