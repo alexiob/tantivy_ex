@@ -14,8 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed ResourceManager GenServer startup conflicts** - Resolved failing ResourceManager tests caused by singleton GenServer startup conflicts:
   - **Issue**: Multiple test runs were attempting to start the same named GenServer instance (`TantivyEx.ResourceManager`), causing `{:error, {:already_started, #PID<...>}}` errors
   - **Solution**: Modified test setup in `tantivy_ex_resource_manager_test.exs` to gracefully handle already-running GenServer instances
-  - **Implementation**: Updated setup block to accept both successful startup (`{:ok, _pid}`) and already-started (`{:error, {:already_started, _pid}}`) scenarios
-  - **Result**: All 3 ResourceManager tests now pass consistently, bringing total test success to **458 tests with 0 failures**
+  - **Pattern applied**: `{:ok, _pid} | {:error, {:already_started, _pid}} -> :ok` allows tests to pass regardless of GenServer startup state
+  - **Achievement**: 100% test success rate with 458 tests, 0 failures
+
+#### GitHub Release Workflow Configuration
+
+- **Fixed missing RUSTLER_NIF_VERSION environment variable** - Resolved GitHub Actions release workflow failures for cross-compilation:
+  - **Issue**: `rustler-precompiled-action` required `RUSTLER_NIF_VERSION` environment variable for cross-compilation but it wasn't configured
+  - **Solution**: Added proper environment variable configuration to `.github/workflows/release.yml`:
+    - Added `RUSTLER_NIF_VERSION: ${{ matrix.nif }}` to build step environment
+    - Added `RUSTLER_TARGET_DIR: native/tantivy_ex/target` for consistent target directory handling
+  - **Impact**: Enables successful precompiled NIF builds for all target platforms and architectures
 
 ## [0.3.2] - 2025-06-12
 

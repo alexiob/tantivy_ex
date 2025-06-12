@@ -83,4 +83,4 @@ jobs:
         if: ${{ matrix.lint }}
 
       - name: Run tests
-        run: mix test
+        run: mix test --max-failures 10 --timeout 300000

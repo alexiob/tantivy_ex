@@ -66,6 +66,9 @@ jobs:
           use-cross: ${{ matrix.job.use-cross }}
           project-dir: "native/tantivy_ex"
           cross-version: "v0.2.5"
+        env:
+          RUSTLER_NIF_VERSION: ${{ matrix.nif }}
+          RUSTLER_TARGET_DIR: native/tantivy_ex/target
 
       - name: Artifact upload
         uses: actions/upload-artifact@v4
