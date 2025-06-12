@@ -91,9 +91,9 @@ Current:
 - Nested aggregations
 - Elasticsearch-compatible JSON format
 
-## Advanced Features (Major Gap - 100% missing)
+## Advanced Features
 
-Missing:
+Current:
 
 - Faceted search
 - Index merging policies

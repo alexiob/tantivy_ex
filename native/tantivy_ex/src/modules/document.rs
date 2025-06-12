@@ -1,12 +1,15 @@
-use rustler::{Encoder, Env, NifResult, ResourceArc, Term};
-use std::collections::HashMap;
-use tantivy::schema::{Field, FieldType};
-use tantivy::TantivyDocument;
 use base64::{engine::general_purpose, Engine as _};
 use chrono;
+use rustler::{Encoder, Env, NifResult, ResourceArc, Term};
 use serde_json;
+use std::collections::HashMap;
+use tantivy::query::{BooleanQuery, Occur, PhraseQuery, TermQuery};
+use tantivy::schema::{Field, FieldType, IndexRecordOption};
+use tantivy::{TantivyDocument, Term as TantivyTerm};
 
-use crate::modules::resources::{IndexWriterResource, SchemaResource, atoms, convert_json_value_to_btreemap, convert_ip_to_ipv6};
+use crate::modules::resources::{
+    atoms, convert_ip_to_ipv6, convert_json_value_to_btreemap, IndexWriterResource, SchemaResource,
+};
 
 /// Document operations and validation functions
 
@@ -138,6 +141,253 @@ pub fn writer_commit<'a>(
             e
         )))),
     }
+}
+
+#[rustler::nif]
+pub fn writer_delete_term<'a>(
+    env: Env<'a>,
+    writer_res: ResourceArc<IndexWriterResource>,
+    term_field: String,
+    term_value: rustler::Term<'a>,
+) -> NifResult<Term<'a>> {
+    let writer = writer_res.writer.lock().unwrap();
+    let schema = writer.index().schema();
+
+    // Get the field from the schema
+    let field = match schema.get_field(&term_field) {
+        Ok(field) => field,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found in schema",
+                term_field
+            ))));
+        }
+    };
+
+    let field_entry = schema.get_field_entry(field);
+    let field_type = field_entry.field_type();
+
+    // Create a Tantivy Term or Query based on the field type and value
+    match field_type {
+        FieldType::Str(text_options) => {
+            if let Ok(string_val) = term_value.decode::<String>() {
+                // Check if the field is tokenized
+                if let Some(indexing) = text_options.get_indexing_options() {
+                    // For tokenized text fields, we need to use query-based deletion
+                    let words: Vec<&str> = string_val.split_whitespace().collect();
+                    let _word_count = words.len();
+
+                    let query: Box<dyn tantivy::query::Query> = if words.len() == 1 {
+                        // Single word - use term query with lowercase normalization
+                        let tantivy_term =
+                            TantivyTerm::from_field_text(field, &words[0].to_lowercase());
+                        Box::new(TermQuery::new(tantivy_term, IndexRecordOption::Basic))
+                    } else {
+                        // Multiple words - check if positions are indexed for phrase queries
+                        if indexing.index_option().has_positions() {
+                            // Use phrase query when positions are available
+                            let terms: Vec<TantivyTerm> = words
+                                .iter()
+                                .map(|word| {
+                                    TantivyTerm::from_field_text(field, &word.to_lowercase())
+                                })
+                                .collect();
+                            Box::new(PhraseQuery::new(terms))
+                        } else {
+                            // Use boolean query with all terms as MUST when positions are not available
+                            let mut clauses = Vec::new();
+                            for word in words {
+                                let tantivy_term =
+                                    TantivyTerm::from_field_text(field, &word.to_lowercase());
+                                let term_query =
+                                    TermQuery::new(tantivy_term, IndexRecordOption::Basic);
+                                clauses.push((
+                                    Occur::Must,
+                                    Box::new(term_query) as Box<dyn tantivy::query::Query>,
+                                ));
+                            }
+                            Box::new(BooleanQuery::new(clauses))
+                        }
+                    };
+
+                    // Perform the deletion using query
+                    match writer.delete_query(query) {
+                        Ok(_opstamp) => {
+                            return Ok(atoms::ok().encode(env));
+                        }
+                        Err(e) => {
+                            return Err(rustler::Error::Term(Box::new(format!(
+                                "Failed to delete by query: {}",
+                                e
+                            ))));
+                        }
+                    }
+                } else {
+                    // Non-tokenized text field - use term deletion
+                    let tantivy_term = TantivyTerm::from_field_text(field, &string_val);
+
+                    // Perform the deletion
+                    let _opstamp = writer.delete_term(tantivy_term.clone());
+
+                    return Ok(atoms::ok().encode(env));
+                }
+            } else {
+                return Err(rustler::Error::Term(Box::new(
+                    "Invalid string value for text field".to_string(),
+                )));
+            }
+        }
+        FieldType::U64(_) => {
+            let tantivy_term = if let Ok(int_val) = term_value.decode::<u64>() {
+                TantivyTerm::from_field_u64(field, int_val)
+            } else if let Ok(int_val) = term_value.decode::<i64>() {
+                if int_val >= 0 {
+                    TantivyTerm::from_field_u64(field, int_val as u64)
+                } else {
+                    return Err(rustler::Error::Term(Box::new(
+                        "Negative value not allowed for u64 field".to_string(),
+                    )));
+                }
+            } else if let Ok(string_val) = term_value.decode::<String>() {
+                // Try to parse string as u64
+                match string_val.parse::<u64>() {
+                    Ok(val) => TantivyTerm::from_field_u64(field, val),
+                    Err(_) => {
+                        return Err(rustler::Error::Term(Box::new(format!(
+                            "Cannot parse '{}' as u64 for field '{}'",
+                            string_val, term_field
+                        ))));
+                    }
+                }
+            } else {
+                return Err(rustler::Error::Term(Box::new(
+                    "Invalid value for u64 field - expected number or numeric string".to_string(),
+                )));
+            };
+
+            // Perform the deletion
+            let _opstamp = writer.delete_term(tantivy_term.clone());
+
+            return Ok(atoms::ok().encode(env));
+        }
+        FieldType::I64(_) => {
+            let tantivy_term = if let Ok(int_val) = term_value.decode::<i64>() {
+                TantivyTerm::from_field_i64(field, int_val)
+            } else if let Ok(int_val) = term_value.decode::<u64>() {
+                TantivyTerm::from_field_i64(field, int_val as i64)
+            } else if let Ok(string_val) = term_value.decode::<String>() {
+                // Try to parse string as i64
+                match string_val.parse::<i64>() {
+                    Ok(val) => TantivyTerm::from_field_i64(field, val),
+                    Err(_) => {
+                        return Err(rustler::Error::Term(Box::new(format!(
+                            "Cannot parse '{}' as i64 for field '{}'",
+                            string_val, term_field
+                        ))));
+                    }
+                }
+            } else {
+                return Err(rustler::Error::Term(Box::new(
+                    "Invalid value for i64 field - expected number or numeric string".to_string(),
+                )));
+            };
+
+            // Perform the deletion
+            let _opstamp = writer.delete_term(tantivy_term.clone());
+
+            return Ok(atoms::ok().encode(env));
+        }
+        FieldType::F64(_) => {
+            let tantivy_term = if let Ok(float_val) = term_value.decode::<f64>() {
+                TantivyTerm::from_field_f64(field, float_val)
+            } else if let Ok(int_val) = term_value.decode::<i64>() {
+                TantivyTerm::from_field_f64(field, int_val as f64)
+            } else if let Ok(string_val) = term_value.decode::<String>() {
+                // Try to parse string as f64
+                match string_val.parse::<f64>() {
+                    Ok(val) => TantivyTerm::from_field_f64(field, val),
+                    Err(_) => {
+                        return Err(rustler::Error::Term(Box::new(format!(
+                            "Cannot parse '{}' as f64 for field '{}'",
+                            string_val, term_field
+                        ))));
+                    }
+                }
+            } else {
+                return Err(rustler::Error::Term(Box::new(
+                    "Invalid value for f64 field - expected number or numeric string".to_string(),
+                )));
+            };
+
+            // Perform the deletion
+            let _opstamp = writer.delete_term(tantivy_term.clone());
+
+            return Ok(atoms::ok().encode(env));
+        }
+        FieldType::Bool(_) => {
+            let tantivy_term = if let Ok(bool_val) = term_value.decode::<bool>() {
+                TantivyTerm::from_field_bool(field, bool_val)
+            } else if let Ok(string_val) = term_value.decode::<String>() {
+                // Handle string boolean values
+                let bool_val = match string_val.to_lowercase().as_str() {
+                    "true" | "t" | "1" | "yes" | "y" => true,
+                    "false" | "f" | "0" | "no" | "n" => false,
+                    _ => {
+                        return Err(rustler::Error::Term(Box::new(format!(
+                            "Cannot parse '{}' as boolean for field '{}'",
+                            string_val, term_field
+                        ))));
+                    }
+                };
+                TantivyTerm::from_field_bool(field, bool_val)
+            } else {
+                return Err(rustler::Error::Term(Box::new(
+                    "Invalid value for bool field - expected boolean or boolean string".to_string(),
+                )));
+            };
+
+            // Perform the deletion
+            let _opstamp = writer.delete_term(tantivy_term.clone());
+
+            return Ok(atoms::ok().encode(env));
+        }
+        FieldType::Date(_) => {
+            let tantivy_term = if let Ok(timestamp) = term_value.decode::<i64>() {
+                let date_time = tantivy::DateTime::from_timestamp_secs(timestamp);
+                TantivyTerm::from_field_date(field, date_time)
+            } else if let Ok(string_val) = term_value.decode::<String>() {
+                // Try to parse string as timestamp
+                match string_val.parse::<i64>() {
+                    Ok(timestamp) => {
+                        let date_time = tantivy::DateTime::from_timestamp_secs(timestamp);
+                        TantivyTerm::from_field_date(field, date_time)
+                    }
+                    Err(_) => {
+                        return Err(rustler::Error::Term(Box::new(format!(
+                            "Cannot parse '{}' as timestamp for field '{}'",
+                            string_val, term_field
+                        ))));
+                    }
+                }
+            } else {
+                return Err(rustler::Error::Term(Box::new(
+                    "Invalid value for date field - expected timestamp or timestamp string"
+                        .to_string(),
+                )));
+            };
+
+            // Perform the deletion
+            let _opstamp = writer.delete_term(tantivy_term.clone());
+
+            return Ok(atoms::ok().encode(env));
+        }
+        _ => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Unsupported field type for deletion: {:?}",
+                field_type
+            ))));
+        }
+    };
 }
 
 #[rustler::nif]
@@ -373,9 +623,7 @@ pub fn add_field_to_document(
 ) -> Result<(), String> {
     match field_type {
         FieldType::Str(_) => {
-            let string_val: String = value
-                .decode()
-                .map_err(|_| "Expected string value")?;
+            let string_val: String = value.decode().map_err(|_| "Expected string value")?;
             doc.add_text(field, &string_val);
             Ok(())
         }
@@ -420,9 +668,7 @@ pub fn add_field_to_document(
             }
         }
         FieldType::Bool(_) => {
-            let bool_val: bool = value
-                .decode()
-                .map_err(|_| "Expected boolean value")?;
+            let bool_val: bool = value.decode().map_err(|_| "Expected boolean value")?;
             doc.add_bool(field, bool_val);
             Ok(())
         }
@@ -456,7 +702,8 @@ pub fn add_field_to_document(
                 doc.add_bytes(field, &bytes_val);
                 Ok(())
             } else if let Ok(string_val) = value.decode::<String>() {
-                let bytes = general_purpose::STANDARD.decode(&string_val)
+                let bytes = general_purpose::STANDARD
+                    .decode(&string_val)
                     .map_err(|_| "Invalid base64 encoding".to_string())?;
                 doc.add_bytes(field, &bytes);
                 Ok(())
@@ -474,7 +721,8 @@ pub fn add_field_to_document(
             let string_val: String = value
                 .decode()
                 .map_err(|_| "Expected string value for IP address")?;
-            let ip = string_val.parse::<std::net::IpAddr>()
+            let ip = string_val
+                .parse::<std::net::IpAddr>()
                 .map_err(|_| "Invalid IP address format".to_string())?;
             let ipv6 = convert_ip_to_ipv6(ip);
             doc.add_ip_addr(field, ipv6);
@@ -512,9 +760,10 @@ pub fn validate_field_value(value: rustler::Term, field_type: &FieldType) -> Res
             }
         }
         FieldType::F64(_) => {
-            if value.decode::<f64>().is_ok() ||
-               value.decode::<i64>().is_ok() ||
-               value.decode::<u64>().is_ok() {
+            if value.decode::<f64>().is_ok()
+                || value.decode::<i64>().is_ok()
+                || value.decode::<u64>().is_ok()
+            {
                 Ok(())
             } else {
                 Err("Expected numeric value".to_string())
@@ -549,7 +798,8 @@ pub fn validate_field_value(value: rustler::Term, field_type: &FieldType) -> Res
             if value.decode::<Vec<u8>>().is_ok() {
                 Ok(())
             } else if let Ok(string_val) = value.decode::<String>() {
-                general_purpose::STANDARD.decode(&string_val)
+                general_purpose::STANDARD
+                    .decode(&string_val)
                     .map_err(|_| "Invalid base64 encoding".to_string())?;
                 Ok(())
             } else {
@@ -564,7 +814,8 @@ pub fn validate_field_value(value: rustler::Term, field_type: &FieldType) -> Res
             let string_val: String = value
                 .decode()
                 .map_err(|_| "Expected string value for IP address")?;
-            string_val.parse::<std::net::IpAddr>()
+            string_val
+                .parse::<std::net::IpAddr>()
                 .map_err(|_| "Invalid IP address format".to_string())?;
             Ok(())
         }
@@ -579,7 +830,9 @@ pub fn convert_term_to_json_value(term: rustler::Term) -> serde_json::Value {
     } else if let Ok(u) = term.decode::<u64>() {
         serde_json::Value::Number(serde_json::Number::from(u))
     } else if let Ok(f) = term.decode::<f64>() {
-        serde_json::Value::Number(serde_json::Number::from_f64(f).unwrap_or(serde_json::Number::from(0)))
+        serde_json::Value::Number(
+            serde_json::Number::from_f64(f).unwrap_or(serde_json::Number::from(0)),
+        )
     } else if let Ok(b) = term.decode::<bool>() {
         serde_json::Value::Bool(b)
     } else if let Ok(map) = term.decode::<HashMap<String, rustler::Term>>() {
@@ -589,9 +842,8 @@ pub fn convert_term_to_json_value(term: rustler::Term) -> serde_json::Value {
         }
         serde_json::Value::Object(obj)
     } else if let Ok(vec) = term.decode::<Vec<rustler::Term>>() {
-        let array: Vec<serde_json::Value> = vec.into_iter()
-            .map(convert_term_to_json_value)
-            .collect();
+        let array: Vec<serde_json::Value> =
+            vec.into_iter().map(convert_term_to_json_value).collect();
         serde_json::Value::Array(array)
     } else {
         serde_json::Value::Null

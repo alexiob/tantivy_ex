@@ -50,6 +50,36 @@ defmodule TantivyEx.Query do
   @type t :: reference()
   @type parser :: reference()
 
+  @doc """
+  Creates a term query for exact matching.
+
+  Term queries match documents where the specified field contains the exact term.
+
+  ## Parameters
+
+  - `schema`: The schema containing the field
+  - `field_name`: The name of the field to search
+  - `term_value`: The exact term to match
+
+  ## Examples
+
+      iex> {:ok, query} = TantivyEx.Query.term(schema, "title", "hello")
+      iex> is_reference(query)
+      true
+  """
+  @spec term(Schema.t(), String.t(), any()) :: {:ok, t()} | {:error, String.t()}
+  def term(schema, field_name, term_value) when is_binary(field_name) do
+    # Convert the term value to a string if it's not already a string
+    term_str = if is_binary(term_value), do: term_value, else: to_string(term_value)
+
+    case Native.query_term(schema, field_name, term_str) do
+      {:error, error_reason} -> {:error, "Failed to create term query: #{error_reason}"}
+      query_ref -> {:ok, query_ref}
+    end
+  rescue
+    e -> {:error, "Failed to create term query: #{inspect(e)}"}
+  end
+
   # Query Parser Functions
 
   @doc """
@@ -108,35 +138,6 @@ defmodule TantivyEx.Query do
     end
   rescue
     e -> {:error, "Failed to parse query: #{inspect(e)}"}
-  end
-
-  # Basic Query Types
-
-  @doc """
-  Creates a term query for exact matching.
-
-  Term queries match documents where the specified field contains the exact term.
-
-  ## Parameters
-
-  - `schema`: The schema containing the field
-  - `field_name`: The name of the field to search
-  - `term_value`: The exact term to match
-
-  ## Examples
-
-      iex> {:ok, query} = TantivyEx.Query.term(schema, "title", "hello")
-      iex> is_reference(query)
-      true
-  """
-  @spec term(Schema.t(), String.t(), String.t()) :: {:ok, t()} | {:error, String.t()}
-  def term(schema, field_name, term_value) when is_binary(field_name) and is_binary(term_value) do
-    case Native.query_term(schema, field_name, term_value) do
-      {:error, reason} -> {:error, reason}
-      query_ref -> {:ok, query_ref}
-    end
-  rescue
-    e -> {:error, "Failed to create term query: #{inspect(e)}"}
   end
 
   @doc """

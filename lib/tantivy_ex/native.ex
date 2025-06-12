@@ -61,6 +61,9 @@ defmodule TantivyEx.Native do
   def writer_add_document(_writer, _document_json), do: :erlang.nif_error(:nif_not_loaded)
   def writer_commit(_writer), do: :erlang.nif_error(:nif_not_loaded)
 
+  def writer_delete_term(_writer, _term_field, _term_value),
+    do: :erlang.nif_error(:nif_not_loaded)
+
   # Enhanced document operations
   def writer_add_document_with_schema(_writer, _document, _schema),
     do: :erlang.nif_error(:nif_not_loaded)
@@ -318,4 +321,7 @@ defmodule TantivyEx.Native do
   def reader_manager_shutdown(_manager), do: :erlang.nif_error(:nif_not_loaded)
   def reader_manager_dispose_reader(_manager, _reader_id), do: :erlang.nif_error(:nif_not_loaded)
   def reader_manager_clear_all(_manager), do: :erlang.nif_error(:nif_not_loaded)
+
+  # Note: Performance, Memory, and Resource management functions are implemented
+  # in pure Elixir in their respective modules and do not require native implementations.
 end

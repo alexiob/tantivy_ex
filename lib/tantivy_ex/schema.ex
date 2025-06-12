@@ -125,6 +125,31 @@ defmodule TantivyEx.Schema do
     end
   end
 
+  def add_text_field(schema, field_name, options) when is_list(options) do
+    # Convert keyword list to appropriate options string
+    options_str =
+      cond do
+        Keyword.get(options, :stored, false) and Keyword.get(options, :fast, false) ->
+          "FAST_STORED"
+
+        Keyword.get(options, :stored, false) ->
+          "TEXT_STORED"
+
+        Keyword.get(options, :fast, false) ->
+          "FAST"
+
+        true ->
+          "TEXT"
+      end
+
+    case Native.schema_add_text_field(schema, field_name, options_str) do
+      {:ok, new_schema} -> new_schema
+      {:error, reason} -> raise "Failed to add text field: #{reason}"
+      # Direct return for now
+      new_schema -> new_schema
+    end
+  end
+
   @doc """
   Adds a text field with a custom tokenizer to the schema.
 

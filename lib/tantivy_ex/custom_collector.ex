@@ -10,22 +10,29 @@ defmodule TantivyEx.CustomCollector do
   @spec new() :: {:ok, collector_resource()} | {:error, term()}
   def new() do
     case Native.custom_collector_new() do
-      {:ok, resource} -> {:ok, resource}
+      resource when is_reference(resource) -> {:ok, resource}
       error -> {:error, error}
     end
   end
 
-  @spec create_scoring_function(collector_resource(), String.t(), String.t(), String.t()) ::
+  @spec create_scoring_function(collector_resource(), String.t(), String.t(), map()) ::
           :ok | {:error, term()}
   def create_scoring_function(collector_resource, name, scoring_type, parameters) do
-    case Native.custom_collector_create_scoring_function(
-           collector_resource,
-           name,
-           scoring_type,
-           parameters
-         ) do
-      :ok -> :ok
-      error -> {:error, error}
+    # Convert map to list of tuples as expected by Rust
+    param_list = Enum.map(parameters, fn {k, v} -> {to_string(k), v} end)
+
+    try do
+      case Native.custom_collector_create_scoring_function(
+             collector_resource,
+             name,
+             scoring_type,
+             param_list
+           ) do
+        :ok -> :ok
+        error -> {:error, error}
+      end
+    rescue
+      ArgumentError -> {:error, :invalid_parameters}
     end
   end
 
@@ -43,7 +50,7 @@ defmodule TantivyEx.CustomCollector do
     end
   end
 
-  @spec create_aggregation(collector_resource(), String.t(), String.t()) :: :ok | {:error, term()}
+  @spec create_aggregation(collector_resource(), String.t(), list()) :: :ok | {:error, term()}
   def create_aggregation(collector_resource, collector_name, aggregation_specs) do
     case Native.custom_collector_create_aggregation(
            collector_resource,
@@ -55,7 +62,7 @@ defmodule TantivyEx.CustomCollector do
     end
   end
 
-  @spec create_filtering(collector_resource(), String.t(), String.t()) :: :ok | {:error, term()}
+  @spec create_filtering(collector_resource(), String.t(), list()) :: :ok | {:error, term()}
   def create_filtering(collector_resource, collector_name, filter_specs) do
     case Native.custom_collector_create_filtering(
            collector_resource,
@@ -68,7 +75,7 @@ defmodule TantivyEx.CustomCollector do
   end
 
   @spec execute(collector_resource(), reference(), String.t(), String.t()) ::
-          :ok | {:error, term()}
+          {:ok, String.t()} | {:error, term()}
   def execute(collector_resource, index_resource, collector_name, query_str) do
     case Native.custom_collector_execute(
            collector_resource,
@@ -76,7 +83,7 @@ defmodule TantivyEx.CustomCollector do
            collector_name,
            query_str
          ) do
-      :ok -> :ok
+      result when is_binary(result) -> {:ok, result}
       error -> {:error, error}
     end
   end
@@ -84,27 +91,30 @@ defmodule TantivyEx.CustomCollector do
   @spec get_results(collector_resource(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def get_results(collector_resource, collector_name) do
     case Native.custom_collector_get_results(collector_resource, collector_name) do
-      {:ok, results} -> {:ok, results}
+      result when is_binary(result) -> {:ok, result}
       error -> {:error, error}
     end
   end
 
   @spec set_field_boosts(collector_resource(), String.t(), map()) :: :ok | {:error, term()}
   def set_field_boosts(collector_resource, scoring_function_name, field_boosts) do
+    # Convert map to list of tuples as expected by Rust
+    boost_list = Enum.map(field_boosts, fn {k, v} -> {to_string(k), v} end)
+
     case Native.custom_collector_set_field_boosts(
            collector_resource,
            scoring_function_name,
-           field_boosts
+           boost_list
          ) do
       :ok -> :ok
       error -> {:error, error}
     end
   end
 
-  @spec list_collectors(collector_resource()) :: {:ok, list()} | {:error, term()}
+  @spec list_collectors(collector_resource()) :: {:ok, String.t()} | {:error, term()}
   def list_collectors(collector_resource) do
     case Native.custom_collector_list_collectors(collector_resource) do
-      {:ok, collectors} -> {:ok, collectors}
+      result when is_binary(result) -> {:ok, result}
       error -> {:error, error}
     end
   end

@@ -1,4 +1,4 @@
-defmodule TantivyEx.ReaderManagerTest do
+defmodule TantivyEx.ReaderManagerSimpleTest do
   use ExUnit.Case, async: true
   doctest TantivyEx.ReaderManager
 
@@ -6,37 +6,17 @@ defmodule TantivyEx.ReaderManagerTest do
 
   describe "reader manager lifecycle" do
     test "creates a new reader manager" do
-      # Test that the function exists and returns expected pattern
-      case ReaderManager.new() do
-        {:ok, manager} ->
-          assert is_reference(manager)
-
-        {:error, _reason} ->
-          # Expected if native function not fully implemented
-          assert true
-      end
+      # Function should work correctly and return a valid manager
+      {:ok, manager} = ReaderManager.new()
+      assert is_reference(manager)
     end
 
-    test "handles basic operations gracefully" do
-      case ReaderManager.new() do
-        {:ok, manager} ->
-          # Test basic functions that exist in the module
-          case ReaderManager.get_health(manager) do
-            {:ok, _health} -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
-          end
+    test "handles basic operations correctly" do
+      {:ok, manager} = ReaderManager.new()
 
-          case ReaderManager.get_stats(manager) do
-            {:ok, _stats} -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
-          end
-
-        {:error, _reason} ->
-          # Skip if we can't create manager
-          assert true
-      end
+      # Test basic functions that should work
+      {:ok, _health} = ReaderManager.get_health(manager)
+      {:ok, _stats} = ReaderManager.get_stats(manager)
     end
   end
 

@@ -79,14 +79,14 @@ defmodule TantivyEx.CustomCollectorTest do
     end
 
     test "creates new custom collector gracefully" do
-      # Test that the function exists and handles the call appropriately
+      # Test that the function succeeds and returns a valid reference
       case CustomCollector.new() do
         {:ok, collector} ->
           assert is_reference(collector)
 
-        {:error, _reason} ->
-          # Expected if native function not fully implemented
-          assert true
+        {:error, reason} ->
+          # This should not happen now that the function is fixed
+          flunk("CustomCollector.new() unexpectedly failed with: #{inspect(reason)}")
       end
     end
   end
@@ -95,22 +95,21 @@ defmodule TantivyEx.CustomCollectorTest do
     test "creates scoring function collector", %{searcher: _searcher} do
       case CustomCollector.new() do
         {:ok, collector} ->
-          scoring_function = "tf_idf"
-          field_name = "content"
-          parameters = %{boost: 1.5, normalization: "cosine"}
+          scoring_function_name = "content_scoring"
+          scoring_type = "bm25"
+          parameters = %{k1: 1.2, b: 0.75}
 
           case CustomCollector.create_scoring_function(
                  collector,
-                 scoring_function,
-                 field_name,
+                 scoring_function_name,
+                 scoring_type,
                  parameters
                ) do
             :ok ->
               assert true
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+            {:error, reason} ->
+              flunk("Failed to create scoring function collector: #{inspect(reason)}")
           end
 
         {:error, _reason} ->
@@ -121,18 +120,35 @@ defmodule TantivyEx.CustomCollectorTest do
     test "creates top-k collector" do
       case CustomCollector.new() do
         {:ok, collector} ->
-          k = 10
-          sort_by = "score"
-          order = :desc
-          _options = %{include_scores: true}
+          # First create a scoring function
+          scoring_function_name = "default_scoring"
 
-          case CustomCollector.create_top_k(collector, k, sort_by, order) do
+          case CustomCollector.create_scoring_function(
+                 collector,
+                 scoring_function_name,
+                 "bm25",
+                 %{k1: 1.2, b: 0.75}
+               ) do
             :ok ->
-              assert true
+              # Now create the top-k collector
+              collector_name = "top_k_collector"
+              k = 10
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+              case CustomCollector.create_top_k(
+                     collector,
+                     collector_name,
+                     k,
+                     scoring_function_name
+                   ) do
+                :ok ->
+                  assert true
+
+                {:error, reason} ->
+                  flunk("Failed to create top-k collector: #{inspect(reason)}")
+              end
+
+            {:error, reason} ->
+              flunk("Failed to create scoring function: #{inspect(reason)}")
           end
 
         {:error, _reason} ->
@@ -143,17 +159,15 @@ defmodule TantivyEx.CustomCollectorTest do
     test "creates aggregation collector" do
       case CustomCollector.new() do
         {:ok, collector} ->
-          aggregation_type = "terms"
-          field_name = "category"
-          _options = %{size: 10, min_doc_count: 1}
+          collector_name = "agg_collector"
+          aggregation_specs = [{"category_count", "count", "category"}]
 
-          case CustomCollector.create_aggregation(collector, aggregation_type, field_name) do
+          case CustomCollector.create_aggregation(collector, collector_name, aggregation_specs) do
             :ok ->
               assert true
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+            {:error, reason} ->
+              flunk("Failed to create aggregation collector: #{inspect(reason)}")
           end
 
         {:error, _reason} ->
@@ -164,64 +178,58 @@ defmodule TantivyEx.CustomCollectorTest do
     test "creates filtering collector" do
       case CustomCollector.new() do
         {:ok, collector} ->
-          filter_query = "published:true"
-          field_name = "published"
-          _options = %{cache_results: true}
+          collector_name = "filter_collector"
+          filter_specs = [{"published", "equals", "true"}]
 
-          case CustomCollector.create_filtering(collector, filter_query, field_name) do
+          case CustomCollector.create_filtering(collector, collector_name, filter_specs) do
             :ok ->
               assert true
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+            {:error, reason} ->
+              flunk("Failed to create filtering collector: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create filtering collector: #{inspect(reason)}")
       end
     end
   end
 
   describe "custom collector execution" do
-    test "executes collector with query", %{searcher: searcher} do
+    test "executes collector with query", %{searcher: _searcher, index: index} do
       case CustomCollector.new() do
         {:ok, collector} ->
+          collector_name = "test_collector"
           query_string = "machine learning"
-          query_type = "term"
-          _options = %{limit: 10}
 
-          case CustomCollector.execute(collector, searcher, query_string, query_type) do
-            :ok ->
-              assert true
+          case CustomCollector.execute(collector, index, collector_name, query_string) do
+            {:ok, result} ->
+              assert is_binary(result)
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+            {:error, reason} ->
+              flunk("Failed to execute collector: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
 
     test "gets results from collector" do
       case CustomCollector.new() do
         {:ok, collector} ->
-          result_type = "documents"
-          _options = %{include_metadata: true}
+          collector_name = "test_collector"
 
-          case CustomCollector.get_results(collector, result_type) do
+          case CustomCollector.get_results(collector, collector_name) do
             {:ok, results} ->
-              assert is_list(results) or is_map(results)
+              assert is_binary(results)
 
-            {:error, _reason} ->
-              # Expected if no execution has occurred or function not implemented
-              assert true
+            {:error, reason} ->
+              flunk("Failed to get results from collector: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
   end
@@ -230,20 +238,28 @@ defmodule TantivyEx.CustomCollectorTest do
     test "sets field boosts" do
       case CustomCollector.new() do
         {:ok, collector} ->
-          field_boosts = %{"title" => 2.0, "content" => 1.0, "category" => 1.5}
-          options = %{normalize: true}
-
-          case CustomCollector.set_field_boosts(collector, field_boosts, options) do
+          # First create a scoring function to boost
+          case CustomCollector.create_scoring_function(collector, "test_scoring", "bm25", %{
+                 k1: 1.2,
+                 b: 0.75
+               }) do
             :ok ->
-              assert true
+              field_boosts = %{"title" => 2.0, "content" => 1.0, "category" => 1.5}
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+              case CustomCollector.set_field_boosts(collector, "test_scoring", field_boosts) do
+                :ok ->
+                  assert true
+
+                {:error, reason} ->
+                  flunk("Failed to set field boosts: #{inspect(reason)}")
+              end
+
+            {:error, reason} ->
+              flunk("Failed to create scoring function: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
 
@@ -251,16 +267,16 @@ defmodule TantivyEx.CustomCollectorTest do
       case CustomCollector.new() do
         {:ok, collector} ->
           case CustomCollector.list_collectors(collector) do
-            {:ok, collectors} ->
-              assert is_list(collectors)
+            {:ok, json_string} ->
+              assert is_binary(json_string)
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+            {:error, reason} ->
+              # Function exists but may need specific conditions
+              flunk("Failed to list collectors: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
 
@@ -271,9 +287,8 @@ defmodule TantivyEx.CustomCollectorTest do
             :ok ->
               assert true
 
-            {:error, _reason} ->
-              # Expected if native function not fully implemented
-              assert true
+            {:error, reason} ->
+              flunk("Failed to clear all collectors: #{inspect(reason)}")
           end
 
         {:error, _reason} ->
@@ -283,40 +298,50 @@ defmodule TantivyEx.CustomCollectorTest do
   end
 
   describe "custom collector integration scenarios" do
-    test "complex multi-collector workflow", %{searcher: searcher} do
+    test "complex multi-collector workflow", %{searcher: _searcher, index: index} do
       case CustomCollector.new() do
         {:ok, collector} ->
+          # First create a scoring function
+          {:ok, _} =
+            CustomCollector.create_scoring_function(collector, "test_scoring", "bm25", %{
+              k1: 1.2,
+              b: 0.75
+            })
+            |> handle_result()
+
           # Set up field boosts
           field_boosts = %{"title" => 2.0, "content" => 1.0}
 
           {:ok, _} =
-            CustomCollector.set_field_boosts(collector, field_boosts, %{})
+            CustomCollector.set_field_boosts(collector, "test_scoring", field_boosts)
             |> handle_result()
 
           # Create top-k collector
           {:ok, _} =
-            CustomCollector.create_top_k(collector, 5, "score", :desc)
+            CustomCollector.create_top_k(collector, "top_k", 5, "test_scoring")
             |> handle_result()
 
           # Create aggregation
           {:ok, _} =
-            CustomCollector.create_aggregation(collector, "terms", "category")
+            CustomCollector.create_aggregation(collector, "agg", [
+              {"category_count", "count", "category"}
+            ])
             |> handle_result()
 
           # Execute search
           {:ok, _} =
-            CustomCollector.execute(collector, searcher, "technology", "term")
+            CustomCollector.execute(collector, index, "top_k", "technology")
             |> handle_result()
 
           # Get results
           {:ok, _results} =
-            CustomCollector.get_results(collector, "combined")
+            CustomCollector.get_results(collector, "top_k")
             |> handle_result()
 
           assert true
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
 
@@ -327,7 +352,7 @@ defmodule TantivyEx.CustomCollectorTest do
           case CustomCollector.create_scoring_function(
                  collector,
                  "invalid_function",
-                 "content",
+                 "invalid_type",
                  %{}
                ) do
             :ok ->
@@ -338,36 +363,46 @@ defmodule TantivyEx.CustomCollectorTest do
               assert is_binary(reason) or is_atom(reason)
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
 
-    test "memory management with large result sets", %{searcher: searcher} do
+    test "memory management with large result sets", %{searcher: _searcher, index: index} do
       case CustomCollector.new() do
         {:ok, collector} ->
-          # Create collector for large result set
-          case CustomCollector.create_top_k(collector, 1000, "score", :desc) do
+          # First create a scoring function
+          case CustomCollector.create_scoring_function(collector, "large_test", "bm25", %{}) do
             :ok ->
-              # Execute and verify memory handling
-              case CustomCollector.execute(collector, searcher, "*", "all") do
+              # Create collector for large result set
+              case CustomCollector.create_top_k(collector, "large_collector", 1000, "large_test") do
                 :ok ->
-                  # Clear to test cleanup
-                  case CustomCollector.clear_all(collector) do
-                    :ok -> assert true
-                    {:error, _} -> assert true
+                  # Execute and verify memory handling
+                  case CustomCollector.execute(collector, index, "large_collector", "test") do
+                    {:ok, _result} ->
+                      # Clear to test cleanup
+                      case CustomCollector.clear_all(collector) do
+                        :ok ->
+                          assert true
+
+                        {:error, reason} ->
+                          flunk("Failed to clear collectors: #{inspect(reason)}")
+                      end
+
+                    {:error, reason} ->
+                      flunk("Failed to execute large collector: #{inspect(reason)}")
                   end
 
-                {:error, _} ->
-                  assert true
+                {:error, reason} ->
+                  flunk("Failed to create large collector: #{inspect(reason)}")
               end
 
-            {:error, _} ->
-              assert true
+            {:error, reason} ->
+              flunk("Failed to create scoring function: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create collector: #{inspect(reason)}")
       end
     end
   end
@@ -375,4 +410,5 @@ defmodule TantivyEx.CustomCollectorTest do
   # Helper function to handle expected {:error, _} results gracefully
   defp handle_result({:ok, result}), do: {:ok, result}
   defp handle_result({:error, _reason}), do: {:ok, :not_implemented}
+  defp handle_result(:ok), do: {:ok, :ok}
 end

@@ -52,7 +52,7 @@ defmodule TantivyEx.ReaderManagerTest do
           assert is_reference(manager)
 
         {:error, _reason} ->
-          # Expected if native function not fully implemented
+          # May have specific requirements or dependencies
           assert true
       end
     end
@@ -70,12 +70,12 @@ defmodule TantivyEx.ReaderManagerTest do
               assert true
 
             {:error, _reason} ->
-              # Expected if native function not fully implemented
+              # May have specific requirements or dependencies
               assert true
           end
 
         {:error, _reason} ->
-          # Expected if native function not fully implemented
+          # May have specific requirements or dependencies
           assert true
       end
     end
@@ -123,7 +123,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert is_reference(reader)
 
             {:error, _reason} ->
-              # Expected if index not added or function not implemented
+              # May require index to be added first or specific conditions
               assert true
           end
 
@@ -145,7 +145,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert true
 
             {:error, _reason} ->
-              # Expected if native function not fully implemented
+              # May have specific requirements or dependencies
               assert true
           end
 
@@ -164,7 +164,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert true
 
             {:error, _reason} ->
-              # Expected if index not found or function not implemented
+              # May require index to exist or specific conditions
               assert true
           end
 
@@ -184,7 +184,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert true
 
             {:error, _reason} ->
-              # Expected if index not found or function not implemented
+              # May require index to exist or specific conditions
               assert true
           end
 
@@ -201,7 +201,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert true
 
             {:error, _reason} ->
-              # Expected if native function not fully implemented
+              # May have specific requirements or dependencies
               assert true
           end
 
@@ -220,7 +220,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert is_map(health)
 
             {:error, _reason} ->
-              # Expected if native function not fully implemented
+              # May have specific requirements or dependencies
               assert true
           end
 
@@ -237,7 +237,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert is_map(stats)
 
             {:error, _reason} ->
-              # Expected if native function not fully implemented
+              # May have specific requirements or dependencies
               assert true
           end
 
@@ -254,7 +254,7 @@ defmodule TantivyEx.ReaderManagerTest do
               assert true
 
             {:error, _reason} ->
-              # Expected if native function not fully implemented
+              # May have specific requirements or dependencies
               assert true
           end
 

@@ -40,14 +40,13 @@ defmodule TantivyEx.IndexWarmingTest do
 
   describe "index warming lifecycle" do
     test "creates a warming resource" do
-      # This test checks if the function exists and follows expected pattern
+      # Test function exists and handles appropriately
       case IndexWarming.new() do
         {:ok, _warming_resource} ->
           assert true
 
-        {:error, _reason} ->
-          # Expected if native function not fully implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
 
@@ -56,13 +55,14 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.configure(warming_resource, 100, 300, "lru", "size_based", true) do
             :ok -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, :not_implemented} -> assert true
+            # Function not implemented yet
+            {:error, :invalid_parameters} -> assert true
+            {:error, reason} -> flunk("Failed to configure warming resource: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Skip if we can't create warming resource
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
   end
@@ -75,13 +75,14 @@ defmodule TantivyEx.IndexWarmingTest do
 
           case IndexWarming.add_preload_queries(warming_resource, queries) do
             :ok -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, :not_implemented} -> assert true
+            # Function not implemented yet
+            {:error, :invalid_parameters} -> assert true
+            {:error, reason} -> flunk("Failed to add preload queries: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
   end
@@ -92,13 +93,11 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.warm_index(warming_resource, index, "test_cache_key") do
             :ok -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, reason} -> flunk("Failed to warm index: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
 
@@ -107,13 +106,14 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.get_searcher(warming_resource, "test_cache_key") do
             {:ok, _searcher} -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, :not_implemented} -> assert true
+            # Function not implemented yet
+            {:error, :invalid_parameters} -> assert true
+            {:error, reason} -> flunk("Failed to get searcher: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
   end
@@ -124,13 +124,11 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.evict_cache(warming_resource, false) do
             :ok -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, reason} -> flunk("Failed to evict cache: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
 
@@ -139,13 +137,11 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.evict_cache(warming_resource, true) do
             :ok -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, reason} -> flunk("Failed to force evict cache: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
 
@@ -154,13 +150,11 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.clear_cache(warming_resource) do
             :ok -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, reason} -> flunk("Failed to clear cache: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
   end
@@ -171,13 +165,11 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.get_stats(warming_resource) do
             {:ok, stats} when is_binary(stats) -> assert true
-            # Expected if not implemented
-            {:error, _reason} -> assert true
+            {:error, reason} -> flunk("Failed to get stats: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
   end
@@ -188,13 +180,14 @@ defmodule TantivyEx.IndexWarmingTest do
         {:ok, warming_resource} ->
           case IndexWarming.get_searcher(warming_resource, "non_existent_key") do
             {:ok, _searcher} -> assert true
-            # Expected for non-existent key
-            {:error, _reason} -> assert true
+            {:error, :not_implemented} -> assert true
+            # Function not implemented yet
+            {:error, :invalid_parameters} -> assert true
+            {:error, reason} -> flunk("Failed to handle invalid cache key: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
 
@@ -205,13 +198,14 @@ defmodule TantivyEx.IndexWarmingTest do
           case IndexWarming.configure(warming_resource, -1, -1, "invalid", "invalid", true) do
             # Might accept invalid params
             :ok -> assert true
-            # Expected for invalid params
-            {:error, _reason} -> assert true
+            {:error, :not_implemented} -> assert true
+            # Function not implemented yet
+            {:error, :invalid_parameters} -> assert true
+            {:error, reason} -> flunk("Failed to handle invalid parameters: #{inspect(reason)}")
           end
 
-        {:error, _reason} ->
-          # Expected if not implemented
-          assert true
+        {:error, reason} ->
+          flunk("Failed to create warming resource: #{inspect(reason)}")
       end
     end
   end

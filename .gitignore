@@ -19,6 +19,9 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 tantivy_ex-*.tar
 
+# Ignore log files
+/log/
+
 # Ignore test result files
 /test/result_files/*
 

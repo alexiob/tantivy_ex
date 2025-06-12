@@ -344,27 +344,13 @@ defmodule TantivyEx.Distributed.SearchNode do
   end
 
   defp perform_search(searcher, query_term, limit, offset) when is_binary(query_term) do
-    # Create a simple term query using proper Query API
-    case TantivyEx.Query.parser(searcher, ["title", "body"]) do
-      {:ok, parser} ->
-        case TantivyEx.Query.parse(parser, query_term) do
-          {:ok, query} ->
-            case TantivyEx.Searcher.search(searcher, query, limit) do
-              {:ok, results} ->
-                # Apply offset manually since TantivyEx search doesn't support offset directly
-                paginated_results = results |> Enum.drop(offset) |> Enum.take(limit)
-                {:ok, paginated_results}
-
-              error ->
-                error
-            end
-
-          error ->
-            error
-        end
-
-      error ->
-        error
+    # Create a simple term query using proper Query API with clean error handling
+    with {:ok, parser} <- TantivyEx.Query.parser(searcher, ["title", "body"]),
+         {:ok, query} <- TantivyEx.Query.parse(parser, query_term),
+         {:ok, results} <- TantivyEx.Searcher.search(searcher, query, limit) do
+      # Apply offset manually since TantivyEx search doesn't support offset directly
+      paginated_results = results |> Enum.drop(offset) |> Enum.take(limit)
+      {:ok, paginated_results}
     end
   end
 

@@ -230,163 +230,97 @@ defmodule TantivyEx.Document do
   """
   @spec add_batch(IndexWriter.t(), [document()], Schema.t(), keyword() | map()) :: batch_result()
   def add_batch(writer, documents, schema, options \\ []) do
-    # Normalize options to keyword list
-    normalized_options = normalize_options(options)
-
-    batch_size = Keyword.get(normalized_options, :batch_size, 1000)
-    validate_docs = Keyword.get(normalized_options, :validate, true)
-    continue_on_error = Keyword.get(normalized_options, :continue_on_error, false)
-
-    # Validate all documents first if requested
-    case validate_docs do
-      true ->
-        case validate_batch(documents, schema) do
-          {:ok, docs} ->
-            # Process in batches
-            docs
-            |> Enum.chunk_every(batch_size)
-            |> Enum.with_index()
-            |> Enum.reduce({[], []}, fn {batch, batch_index}, {successes, errors} ->
-              batch_results =
-                process_document_batch(writer, batch, schema, batch_index * batch_size)
-
-              case batch_results do
-                {:ok, results} ->
-                  {successes ++ results, errors}
-
-                {:error, batch_errors} when continue_on_error ->
-                  {successes, errors ++ batch_errors}
-
-                {:error, batch_errors} ->
-                  {successes, errors ++ batch_errors}
-              end
-            end)
-            |> case do
-              {successes, []} -> {:ok, successes}
-              {_successes, errors} -> {:error, errors}
-            end
-
-          {:error, errors} when continue_on_error ->
-            Logger.warning("Batch validation errors: #{inspect(errors)}")
-            # Filter out invalid documents
-            filtered_docs =
-              documents
-              |> Enum.with_index()
-              |> Enum.reject(fn {_doc, index} ->
-                Enum.any?(errors, fn {error_index, _} -> error_index == index end)
-              end)
-              |> Enum.map(fn {doc, _index} -> doc end)
-
-            # Process in batches
-            filtered_docs
-            |> Enum.chunk_every(batch_size)
-            |> Enum.with_index()
-            |> Enum.reduce({[], []}, fn {batch, batch_index}, {successes, errors} ->
-              batch_results =
-                process_document_batch(writer, batch, schema, batch_index * batch_size)
-
-              case batch_results do
-                {:ok, results} -> {successes ++ results, errors}
-                {:error, batch_errors} -> {successes, errors ++ batch_errors}
-              end
-            end)
-            |> case do
-              {successes, []} -> {:ok, successes}
-              {successes, _errors} -> {:ok, successes}
-            end
-
-          {:error, errors} ->
-            {:error, errors}
-        end
-
-      false ->
-        # Process in batches without validation
-        documents
-        |> Enum.chunk_every(batch_size)
-        |> Enum.with_index()
-        |> Enum.reduce({[], []}, fn {batch, batch_index}, {successes, errors} ->
-          batch_results = process_document_batch(writer, batch, schema, batch_index * batch_size)
-
-          case batch_results do
-            {:ok, results} -> {successes ++ results, errors}
-            {:error, batch_errors} when continue_on_error -> {successes, errors ++ batch_errors}
-            {:error, batch_errors} -> {successes, errors ++ batch_errors}
-          end
-        end)
-        |> case do
-          {successes, []} -> {:ok, successes}
-          {_successes, errors} -> {:error, errors}
-        end
+    with {:ok, batch_options} <- prepare_batch_options(options),
+         {:ok, validated_docs} <- validate_documents_if_needed(documents, schema, batch_options),
+         {:ok, results} <-
+           process_documents_in_batches(writer, validated_docs, schema, batch_options) do
+      {:ok, results}
     end
   end
 
   @doc """
-  Updates a document by rebuilding the index without the old document and adding the new one.
+  Updates a document by term-based deletion and re-addition.
 
-  Note: This is a simplified update strategy. In production, you might want to implement
-  more sophisticated update mechanisms based on your use case.
+  This implementation uses Tantivy's term-based document deletion followed by
+  adding the updated document. This is more efficient than full index rebuilding
+  for sparse updates.
 
   ## Parameters
 
-  - `index`: Index reference
-  - `document_id`: Unique identifier for the document to update
-  - `updated_fields`: Map of fields to update
+  - `writer`: IndexWriter reference
+  - `term_field`: Field name to use for identifying the document (e.g., "id")
+  - `term_value`: Value to match for document identification
+  - `updated_document`: Complete updated document map
   - `schema`: Schema reference
 
   ## Returns
 
-  - `{:ok, new_index}` - New index with updated document
+  - `{:ok, :updated}` - Document successfully updated
   - `{:error, reason}` - Update failed
 
   ## Examples
 
-      iex> updated_fields = %{"title" => "Updated Title", "price" => 39.99}
-      iex> {:ok, new_index} = TantivyEx.Document.update(index, "doc_123", updated_fields, schema)
+      iex> updated_doc = %{"id" => "doc_123", "title" => "Updated Title", "price" => 39.99}
+      iex> {:ok, :updated} = TantivyEx.Document.update(writer, "id", "doc_123", updated_doc, schema)
   """
-  @spec update(reference(), String.t(), map(), Schema.t()) ::
-          {:ok, reference()} | {:error, String.t()}
-  def update(_index, _document_id, _updated_fields, _schema) do
-    # This is a placeholder implementation
-    # In a real scenario, you'd need to:
-    # 1. Retrieve all documents except the one being updated
-    # 2. Create a new index
-    # 3. Re-index all documents with the updated document
+  @spec update(IndexWriter.t(), String.t(), any(), map(), Schema.t()) ::
+          {:ok, :updated} | {:error, String.t()}
+  def update(writer, term_field, term_value, updated_document, schema) do
+    with {:ok, validated_doc} <- validate(updated_document, schema) do
+      # For safer updates, we need to handle the case where the term might match multiple documents
+      # We should only delete the document that would be replaced by the updated document
 
-    Logger.warning(
-      "Document update requires full index rebuild - consider using external document store for updates"
-    )
+      # If the updated document has an "id" field, use that for more precise deletion
+      case Map.get(updated_document, "id") do
+        nil ->
+          # Fall back to the original term-based approach
+          with {:ok, :deleted} <- delete_by_term(writer, term_field, term_value, schema),
+               {:ok, _result} <- add(writer, validated_doc, schema) do
+            {:ok, :updated}
+          else
+            {:error, reason} -> {:error, "Update failed: #{reason}"}
+          end
 
-    {:error,
-     "Document updates not yet implemented - use external document store and rebuild index"}
+        doc_id ->
+          # Use the document ID for more precise deletion, then add the updated document
+          with {:ok, :deleted} <- delete_by_term(writer, "id", doc_id, schema),
+               {:ok, _result} <- add(writer, validated_doc, schema) do
+            {:ok, :updated}
+          else
+            {:error, reason} -> {:error, "Update failed: #{reason}"}
+          end
+      end
+    else
+      {:error, reason} -> {:error, "Update failed: #{reason}"}
+    end
   end
 
   @doc """
-  Deletes a document by rebuilding the index without the specified document.
+  Deletes a document by term matching.
+
+  Uses Tantivy's term-based deletion to remove documents that match
+  the specified field and value combination.
 
   ## Parameters
 
-  - `index`: Index reference
-  - `document_id`: Unique identifier for the document to delete
+  - `writer`: IndexWriter reference
+  - `term_field`: Field name to use for identifying the document (e.g., "id")
+  - `term_value`: Value to match for document identification
   - `schema`: Schema reference
 
   ## Returns
 
-  - `{:ok, new_index}` - New index without the deleted document
+  - `{:ok, :deleted}` - Document successfully deleted
   - `{:error, reason}` - Deletion failed
 
   ## Examples
 
-      iex> {:ok, new_index} = TantivyEx.Document.delete(index, "doc_123", schema)
+      iex> {:ok, :deleted} = TantivyEx.Document.delete(writer, "id", "doc_123", schema)
   """
-  @spec delete(reference(), String.t(), Schema.t()) :: {:ok, reference()} | {:error, String.t()}
-  def delete(_index, _document_id, _schema) do
-    # Placeholder implementation similar to update
-    Logger.warning(
-      "Document deletion requires full index rebuild - consider using external document store"
-    )
-
-    {:error,
-     "Document deletion not yet implemented - use external document store and rebuild index"}
+  @spec delete(IndexWriter.t(), String.t(), String.t(), Schema.t()) ::
+          {:ok, :deleted} | {:error, String.t()}
+  def delete(writer, term_field, term_value, schema) do
+    delete_by_term(writer, term_field, term_value, schema)
   end
 
   # JSON document handling
@@ -443,6 +377,95 @@ defmodule TantivyEx.Document do
 
   # Private helper functions
 
+  # Batch processing helper functions
+  defp prepare_batch_options(options) do
+    normalized_options = normalize_options(options)
+
+    batch_options = %{
+      batch_size: Keyword.get(normalized_options, :batch_size, 1000),
+      validate: Keyword.get(normalized_options, :validate, true),
+      continue_on_error: Keyword.get(normalized_options, :continue_on_error, false)
+    }
+
+    {:ok, batch_options}
+  end
+
+  defp validate_documents_if_needed(documents, schema, %{
+         validate: true,
+         continue_on_error: continue_on_error
+       }) do
+    case validate_batch(documents, schema) do
+      {:ok, validated_docs} ->
+        {:ok, validated_docs}
+
+      {:error, errors} when continue_on_error ->
+        Logger.warning("Batch validation errors: #{inspect(errors)}")
+        filtered_docs = filter_invalid_documents(documents, errors)
+        {:ok, filtered_docs}
+
+      {:error, errors} ->
+        {:error, errors}
+    end
+  end
+
+  defp validate_documents_if_needed(documents, _schema, %{validate: false}) do
+    {:ok, documents}
+  end
+
+  defp filter_invalid_documents(documents, errors) do
+    error_indices = Enum.map(errors, fn {index, _} -> index end) |> MapSet.new()
+
+    documents
+    |> Enum.with_index()
+    |> Enum.reject(fn {_doc, index} -> MapSet.member?(error_indices, index) end)
+    |> Enum.map(fn {doc, _index} -> doc end)
+  end
+
+  defp process_documents_in_batches(writer, documents, schema, %{
+         batch_size: batch_size,
+         continue_on_error: continue_on_error
+       }) do
+    {successes, errors} =
+      documents
+      |> Enum.chunk_every(batch_size)
+      |> Enum.with_index()
+      |> Enum.reduce({[], []}, fn {batch, batch_index}, {acc_successes, acc_errors} ->
+        base_index = batch_index * batch_size
+
+        case process_document_batch(writer, batch, schema, base_index) do
+          {:ok, results} ->
+            {acc_successes ++ results, acc_errors}
+
+          {:error, batch_errors} when continue_on_error ->
+            {acc_successes, acc_errors ++ batch_errors}
+
+          {:error, batch_errors} ->
+            {acc_successes, acc_errors ++ batch_errors}
+        end
+      end)
+
+    handle_batch_results(successes, errors, continue_on_error)
+  end
+
+  defp handle_batch_results(successes, [], _continue_on_error) do
+    {:ok, successes}
+  end
+
+  defp handle_batch_results(successes, errors, true) do
+    # When continue_on_error is true, return successes even if there were errors
+    # This matches the original behavior for the continue_on_error case
+    if length(successes) > 0 do
+      {:ok, successes}
+    else
+      {:error, errors}
+    end
+  end
+
+  defp handle_batch_results(_successes, errors, false) do
+    {:error, errors}
+  end
+
+  # General helper functions
   defp normalize_options(options) when is_map(options) do
     Enum.to_list(options)
   end
@@ -628,6 +651,71 @@ defmodule TantivyEx.Document do
     {:ok, document}
   end
 
+  # Document deletion helper function
+  defp delete_by_term(writer, term_field, term_value, schema) do
+    with {:ok, field_info} <- get_schema_field_info(schema),
+         {:ok, field_type} <- get_field_type(field_info, term_field) do
+      # Process the term value based on the field type
+      term_search_value =
+        cond do
+          # If we're given a string, convert it to the appropriate type
+          is_binary(term_value) ->
+            convert_term_string_to_type(term_value, field_type)
+
+          # For non-string values, we need to ensure they're in the expected format
+          field_type == "bool" and is_boolean(term_value) ->
+            term_value
+
+          field_type == "u64" and is_integer(term_value) and term_value >= 0 ->
+            term_value
+
+          field_type == "i64" and is_integer(term_value) ->
+            term_value
+
+          field_type == "f64" and (is_float(term_value) or is_integer(term_value)) ->
+            if is_integer(term_value), do: term_value * 1.0, else: term_value
+
+          field_type == "date" and is_integer(term_value) ->
+            term_value
+
+          # Convert to string for any other case
+          true ->
+            to_string(term_value)
+        end
+
+      # Log the conversion for debugging purposes
+      Logger.debug(
+        "Term deletion: field=#{term_field}, type=#{field_type}, original=#{inspect(term_value)}, converted=#{inspect(term_search_value)}"
+      )
+
+      case Native.writer_delete_term(writer, term_field, term_search_value) do
+        :ok ->
+          {:ok, :deleted}
+
+        {:error, reason} ->
+          {:error, "Delete operation failed: #{reason}"}
+
+        # Fallback if the native function doesn't exist yet
+        _ ->
+          Logger.warning(
+            "Native delete_term not available, document deletion requires native implementation"
+          )
+
+          {:error,
+           "Document deletion requires native implementation - please ensure the native library is properly compiled"}
+      end
+    else
+      {:error, reason} -> {:error, "Delete preparation failed: #{reason}"}
+    end
+  end
+
+  defp get_field_type(field_info, field_name) do
+    case Map.get(field_info, field_name) do
+      nil -> {:error, "Field '#{field_name}' not found in schema"}
+      field_type -> {:ok, field_type}
+    end
+  end
+
   defp process_document_batch(writer, batch, schema, base_index) do
     batch
     |> Enum.with_index(base_index)
@@ -680,5 +768,65 @@ defmodule TantivyEx.Document do
         _ -> nil
       end
     end)
+  end
+
+  # Convert term string value back to correct type for the given field type
+  defp convert_term_string_to_type(term_value, field_type) do
+    case field_type do
+      "u64" ->
+        case Integer.parse(term_value) do
+          {int_val, ""} when int_val >= 0 -> int_val
+          # Keep as string if not parsable as a positive integer
+          _ -> term_value
+        end
+
+      "i64" ->
+        case Integer.parse(term_value) do
+          {int_val, ""} -> int_val
+          # Keep as string if not parsable as an integer
+          _ -> term_value
+        end
+
+      "f64" ->
+        case Float.parse(term_value) do
+          {float_val, ""} ->
+            float_val
+
+          _ ->
+            case Integer.parse(term_value) do
+              # Convert integers to float
+              {int_val, ""} -> int_val * 1.0
+              # Keep as string if not parsable
+              _ -> term_value
+            end
+        end
+
+      "bool" ->
+        case String.downcase(term_value) do
+          "true" -> true
+          "false" -> false
+          "t" -> true
+          "f" -> false
+          "1" -> true
+          "0" -> false
+          "yes" -> true
+          "no" -> false
+          "y" -> true
+          "n" -> false
+          # Keep as string if not a known boolean representation
+          _ -> term_value
+        end
+
+      "date" ->
+        case Integer.parse(term_value) do
+          {timestamp, ""} -> timestamp
+          # Keep as string if not parsable as an integer timestamp
+          _ -> term_value
+        end
+
+      # For text fields and other types, keep as string
+      _ ->
+        term_value
+    end
   end
 end
