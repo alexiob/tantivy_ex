@@ -1,9 +1,9 @@
 # TantivyEx
 
-[![Elixir CI](https://github.com/your-org/tantivy_ex/workflows/Elixir%20CI/badge.svg)](https://github.com/your-org/tantivy_ex/actions)
+[![Elixir CI](https://github.com/alexiob/tantivy_ex/workflows/Elixir%20CI/badge.svg)](https://github.com/alexiob/tantivy_ex/actions)
 [![Hex Version](https://img.shields.io/hexpm/v/tantivy_ex.svg)](https://hex.pm/packages/tantivy_ex)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/tantivy_ex/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ![TantivyEx Logo](assets/logo.png)
 
@@ -57,7 +57,7 @@ doc = %{
 
 # Search
 {:ok, searcher} = TantivyEx.Searcher.new(index)
-results = TantivyEx.Searcher.search(searcher, "comprehensive guide", 10)
+{:ok, results} = TantivyEx.Searcher.search(searcher, "comprehensive guide", 10)
 
 # Advanced Aggregations (New in v0.2.0)
 {:ok, query} = TantivyEx.Query.all()

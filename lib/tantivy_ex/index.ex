@@ -1,7 +1,7 @@
 defmodule TantivyEx.Index do
   @moduledoc """
   Index management for TantivyEx.
-  
+
   An index is a collection of segments that contain documents and their associated
   search indices.
   """
@@ -12,17 +12,17 @@ defmodule TantivyEx.Index do
 
   @doc """
   Creates a new index in the specified directory.
-  
+
   The directory will be created if it doesn't exist. The index metadata
   and segment files will be stored in this directory.
-  
+
   ## Parameters
-  
+
   - `path`: The filesystem path where the index should be created
   - `schema`: The schema defining the structure of documents
-  
+
   ## Examples
-  
+
       iex> schema = TantivyEx.Schema.new()
       iex> schema = TantivyEx.Schema.add_text_field(schema, "title", :text_stored)
       iex> {:ok, index} = TantivyEx.Index.create_in_dir("/tmp/my_index", schema)
@@ -41,16 +41,16 @@ defmodule TantivyEx.Index do
 
   @doc """
   Creates a new index in RAM.
-  
+
   This creates an in-memory index that doesn't persist to disk.
   Useful for testing or temporary indices.
-  
+
   ## Parameters
-  
+
   - `schema`: The schema defining the structure of documents
-  
+
   ## Examples
-  
+
       iex> schema = TantivyEx.Schema.new()
       iex> schema = TantivyEx.Schema.add_text_field(schema, "title", :text_stored)
       iex> {:ok, index} = TantivyEx.Index.create_in_ram(schema)

@@ -63,8 +63,8 @@ defmodule TantivyEx.MixProject do
   defp package do
     [
       name: "tantivy_ex",
-      files: ~w(lib priv native docs .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
-      licenses: ["Apache-2.0"],
+      files: ~w(lib priv native/tantivy_ex/src native/tantivy_ex/Cargo.toml native/tantivy_ex/Cargo.lock native/tantivy_ex/Cross.toml docs .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
+      licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url,
         "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md",

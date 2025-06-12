@@ -5,25 +5,24 @@ defmodule TantivyEx.Error do
 
   This module provides proper Elixir error types and messages for all TantivyEx
   operations, offering better error diagnostics and handling capabilities.
-
   ## Error Types
 
-  All errors implement the Elixir `Exception` behavior and provide structured
+  All errors implement the Elixir Exception behavior and provide structured
   error information with context, suggestions, and categorization.
 
   ### Core Error Categories
 
-  - `AggregationError` - Errors during aggregation operations
-  - `IoError` - File system and I/O related errors
-  - `LockError` - Index locking and concurrency errors
-  - `FieldError` - Schema field-related errors
-  - `ValidationError` - Document and data validation errors
-  - `SchemaError` - Schema definition and compatibility errors
-  - `SystemError` - System resource and configuration errors
-  - `QueryError` - Query parsing and execution errors
-  - `IndexError` - Index creation and management errors
-  - `MemoryError` - Memory management and limits errors
-  - `ConcurrencyError` - Thread pool and parallelism errors
+  - AggregationError - Errors during aggregation operations
+  - IoError - File system and I/O related errors
+  - LockError - Index locking and concurrency errors
+  - FieldError - Schema field-related errors
+  - ValidationError - Document and data validation errors
+  - SchemaError - Schema definition and compatibility errors
+  - SystemError - System resource and configuration errors
+  - QueryError - Query parsing and execution errors
+  - IndexError - Index creation and management errors
+  - MemoryError - Memory management and limits errors
+  - ConcurrencyError - Thread pool and parallelism errors
 
   ## Usage
 
@@ -48,7 +47,7 @@ defmodule TantivyEx.Error do
 
   ## Error Enhancement
 
-  All TantivyEx modules should use `TantivyEx.Error.wrap/2` to convert raw
+  All TantivyEx modules should use TantivyEx.Error.wrap/2 to convert raw
   errors into structured error types:
 
       case Native.some_operation(args) do
@@ -56,6 +55,18 @@ defmodule TantivyEx.Error do
         {:error, reason} -> {:error, TantivyEx.Error.wrap(reason, :operation_context)}
       end
   """
+
+  @typedoc """
+  Standard error type for TantivyEx operations.
+
+  Common error reasons include:
+  - `:invalid_parameters` - Function was called with invalid parameters
+  - `:not_implemented` - Feature is not yet implemented
+  - `:resource_not_found` - Requested resource was not found
+  - `:resource_limit_exceeded` - Memory or resource limits were exceeded
+  - `:index_error` - Error related to index operations
+  """
+  @type t :: {:error, atom() | String.t()}
 
   # Define all error exception modules
 

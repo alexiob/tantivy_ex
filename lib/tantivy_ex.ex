@@ -10,8 +10,8 @@ defmodule TantivyEx do
 
       # Create a schema
       schema = TantivyEx.Schema.new()
-      schema = TantivyEx.Schema.add_text_field(schema, "title", "TEXT_STORED")
-      schema = TantivyEx.Schema.add_text_field(schema, "body", "TEXT")
+      schema = TantivyEx.Schema.add_text_field(schema, "title", :text_stored)
+      schema = TantivyEx.Schema.add_text_field(schema, "body", :text)
 
       # Create an index
       {:ok, index} = TantivyEx.Index.create_in_ram(schema)
@@ -55,7 +55,7 @@ defmodule TantivyEx do
       TantivyEx.Tokenizer.register_language_analyzer("en")
 
       # Use custom tokenizers in schema
-      schema = TantivyEx.Schema.add_text_field_with_tokenizer(schema, "content", "TEXT", "en_text")
+      schema = TantivyEx.Schema.add_text_field_with_tokenizer(schema, "content", :text, "en_text")
 
       # Test tokenization
       tokens = TantivyEx.Tokenizer.tokenize_text("en_stem", "running quickly")
@@ -65,5 +65,5 @@ defmodule TantivyEx do
   @doc """
   Returns the version of TantivyEx.
   """
-  def version, do: "0.1.0"
+  def version, do: "0.3.3"
 end
