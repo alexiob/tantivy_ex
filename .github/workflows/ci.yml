@@ -15,8 +15,8 @@ jobs:
 
     env:
       MIX_ENV: test
-      PHX_CI: true
-      TANTIVY_EX_BUILD: true
+      RUSTLER_NIF_VERSION: "2.16"
+      RUSTLER_TARGET_DIR: native/tantivy_ex/target
 
     strategy:
       matrix:
@@ -45,11 +45,22 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/tantivy_ex/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/tantivy_ex/Cargo.lock') }}
+          restore-keys: |
+            rust-${{ runner.os }}-
+
       - name: Install Rust build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev
+          sudo apt-get install -y libclang-dev build-essential pkg-config
 
       - name: Restore deps and _build cache
         uses: actions/cache@v4

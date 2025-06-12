@@ -1,14 +1,14 @@
 defmodule TantivyEx.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.3.3"
   @source_url "https://github.com/alex-nexus/tantivy_ex"
 
   def project do
     [
       app: :tantivy_ex,
       version: @version,
-      elixir: "~> 1.18",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       rustler_crates: rustler_crates(),
       deps: deps(),

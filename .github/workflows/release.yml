@@ -59,12 +59,12 @@ jobs:
         id: build-crate
         uses: philss/rustler-precompiled-action@v1.0.1
         with:
-          project-name: tantivy_native
+          project-name: tantivy_ex
           project-version: ${{ env.PROJECT_VERSION }}
           target: ${{ matrix.job.target }}
           nif-version: ${{ matrix.nif }}
           use-cross: ${{ matrix.job.use-cross }}
-          project-dir: "nativetantivy_ex"
+          project-dir: "native/tantivy_ex"
           cross-version: "v0.2.5"
 
       - name: Artifact upload
