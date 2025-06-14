@@ -13,7 +13,10 @@ defmodule TantivyEx do
       schema = TantivyEx.Schema.add_text_field(schema, "title", :text_stored)
       schema = TantivyEx.Schema.add_text_field(schema, "body", :text)
 
-      # Create an index
+      # Create or open an index (recommended for production)
+      {:ok, index} = TantivyEx.Index.open_or_create("/path/to/index", schema)
+
+      # Alternative: Create in-memory index for testing
       {:ok, index} = TantivyEx.Index.create_in_ram(schema)
 
       # Get an index writer
@@ -27,6 +30,22 @@ defmodule TantivyEx do
       # Search
       {:ok, searcher} = TantivyEx.Searcher.new(index)
       {:ok, results} = TantivyEx.Searcher.search(searcher, "hello", 10)
+
+  ## Index Management
+
+  TantivyEx provides several options for index creation and management:
+
+      # Open existing or create new index (production recommended)
+      {:ok, index} = TantivyEx.Index.open_or_create("/path/to/index", schema)
+
+      # Create a new index (fails if already exists)
+      {:ok, index} = TantivyEx.Index.create_in_dir("/path/to/index", schema)
+
+      # Open an existing index (fails if doesn't exist)
+      {:ok, index} = TantivyEx.Index.open("/path/to/index")
+
+      # Create temporary in-memory index
+      {:ok, index} = TantivyEx.Index.create_in_ram(schema)
 
   ## Advanced Aggregations
 

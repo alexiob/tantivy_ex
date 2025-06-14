@@ -85,7 +85,6 @@ defmodule TantivyEx.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
-        "DEVELOPMENT.md",
         "LICENSE",
         "docs/installation-setup.md",
         "docs/quick-start.md",

@@ -27,6 +27,9 @@ An **Index** is a data structure that stores your documents in a way that enable
 
 # Open an existing index
 {:ok, index} = Index.open("/path/to/index")
+
+# Open existing or create new index (recommended)
+{:ok, index} = Index.open_or_create("/path/to/index", schema)
 ```
 
 **Index Types:**
@@ -34,6 +37,13 @@ An **Index** is a data structure that stores your documents in a way that enable
 - **In-Memory**: Fast, temporary, lost on restart
 - **Persistent**: Stored on disk, survives restarts
 - **Distributed**: Multiple shards (advanced topic)
+
+**Index Management Functions:**
+
+- `create_in_dir/2`: Creates new index, fails if exists
+- `create_in_ram/1`: Creates temporary in-memory index
+- `open/1`: Opens existing index, fails if doesn't exist
+- `open_or_create/2`: Opens existing or creates new (production recommended)
 
 ### 2. Schema
 

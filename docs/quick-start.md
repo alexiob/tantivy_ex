@@ -23,12 +23,32 @@ schema = Schema.add_facet_field(schema, "category", :facet)
 ## Step 2: Create Your Index
 
 ```elixir
-# Create a persistent index
+# Option 1: Create a new persistent index
 index_path = "/tmp/blog_search_index"
 {:ok, index} = Index.create_in_dir(index_path, schema)
 
-# Or create an in-memory index for testing
+# Option 2: Open existing index or create if it doesn't exist (recommended)
+{:ok, index} = Index.open_or_create(index_path, schema)
+
+# Option 3: Open an existing index
+{:ok, index} = Index.open(index_path)
+
+# Option 4: Create an in-memory index for testing
 {:ok, index} = Index.create_in_ram(schema)
+```
+
+### Index Persistence
+
+The `open_or_create/2` function is recommended for most applications as it:
+
+- Creates a new index if the directory doesn't exist
+- Opens an existing index if it's already present
+- Handles directory creation automatically
+- Provides seamless index persistence across application restarts
+
+```elixir
+# This will work whether the index exists or not
+{:ok, index} = Index.open_or_create("/var/lib/myapp/search_index", schema)
 ```
 
 ## Step 3: Add Documents

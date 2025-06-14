@@ -52,8 +52,8 @@ Each search result contains:
 Perform a basic search and handle results:
 
 ```elixir
-# Open index and create searcher
-{:ok, index} = TantivyEx.Index.open("path/to/index")
+# Create/open index and create searcher
+{:ok, index} = TantivyEx.Index.create_in_dir("path/to/index", schema)
 {:ok, searcher} = TantivyEx.Searcher.new(index)
 
 # Create query parser

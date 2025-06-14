@@ -73,15 +73,22 @@ schema = Schema.add_text_field(schema, "content", :text)
 schema = Schema.add_u64_field(schema, "timestamp", :fast_stored)
 schema = Schema.add_f64_field(schema, "rating", :fast_stored)
 
-# 2. Create index (choose disk or memory)
-# For production - persistent disk storage
+# 2. Create or open index
+
+# Recommended: Open existing or create new (production-ready)
+{:ok, index} = Index.open_or_create("/var/lib/myapp/search_index", schema)
+
+# Alternative: Create new index (fails if exists)
 {:ok, index} = Index.create_in_dir("/var/lib/myapp/search_index", schema)
+
+# Open existing index (fails if doesn't exist)
+{:ok, index} = Index.open("/var/lib/myapp/search_index")
 
 # For testing - temporary memory storage
 {:ok, index} = Index.create_in_ram(schema)
 
-# 3. Or open existing index
-{:ok, index} = Index.open("/var/lib/myapp/search_index")
+# 3. Or create/open existing index
+{:ok, index} = Index.create_in_dir("/var/lib/myapp/search_index", schema)
 ```
 
 ### Adding Single Documents
@@ -538,9 +545,15 @@ defmodule MyApp.IndexManager do
   end
 
   def open_or_create_index(schema) do
-    case Index.open(@index_path) do
+    case Index.create_in_dir(@index_path, schema) do
       {:ok, index} ->
         {:ok, index}
+
+      {:error, reason} when reason =~ "already exists" ->
+        # Index exists, recreate to ensure schema consistency
+        File.rm_rf!(@index_path)
+        File.mkdir_p!(@index_path)
+        Index.create_in_dir(@index_path, schema)
 
       {:error, _reason} ->
         IO.puts("Index not found, creating new one...")
@@ -614,9 +627,9 @@ defmodule MyApp.IndexStats do
 
   def health_check(index_path) do
     try do
-      case TantivyEx.Index.open(index_path) do
-        {:ok, _index} ->
-          %{
+      # Try to verify index exists by checking for meta files
+      if File.exists?(Path.join(index_path, "meta.json")) do
+        %{
             status: :healthy,
             message: "Index opened successfully",
             timestamp: DateTime.utc_now()
@@ -822,9 +835,16 @@ defmodule MyApp.MultiIndexManager do
   defp select_index(_manager, _document, index_name), do: index_name
 
   defp create_or_open_index(%{path: path, schema: schema}) do
-    case TantivyEx.Index.open(path) do
-      {:ok, index} -> {:ok, index}
-      {:error, _} -> TantivyEx.Index.create_in_dir(path, schema)
+    case TantivyEx.Index.create_in_dir(path, schema) do
+      {:ok, index} ->
+        {:ok, index}
+      {:error, reason} when reason =~ "already exists" ->
+        # Index exists, recreate to ensure schema consistency
+        File.rm_rf!(path)
+        File.mkdir_p!(path)
+        TantivyEx.Index.create_in_dir(path, schema)
+      {:error, _} = error ->
+        error
     end
   end
 end

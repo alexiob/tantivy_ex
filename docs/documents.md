@@ -405,8 +405,8 @@ end
 Add individual documents to the index:
 
 ```elixir
-# Open an index and get a writer
-{:ok, index} = TantivyEx.Index.open("path/to/index")
+# Create or open an index and get a writer
+{:ok, index} = TantivyEx.Index.create_in_dir("path/to/index", schema)
 {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
 # Create and validate document

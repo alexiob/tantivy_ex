@@ -25,8 +25,8 @@ This guide covers query types, search strategies, and best practices for searchi
 ```elixir
 alias TantivyEx.{Index, Searcher}
 
-# Open an existing index
-{:ok, index} = Index.open("/path/to/index")
+# Create or open an existing index
+{:ok, index} = Index.create_in_dir("/path/to/index", schema)
 
 # Create a searcher
 {:ok, searcher} = Searcher.new(index)

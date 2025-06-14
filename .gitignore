@@ -39,3 +39,8 @@ tantivy_ex-*.tar
 
 # The checksum files for precompiled NIFs
 checksum-*.exs
+
+# Examples
+
+examples/giggle/priv/crawled_content
+examples/giggle/priv/search_index*

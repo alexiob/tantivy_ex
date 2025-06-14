@@ -39,7 +39,17 @@ schema = TantivyEx.Schema.new()
 |> TantivyEx.Schema.add_date_field("published_at", :fast)
 
 # Create an index
+# Option 1: Open existing or create new (recommended for production)
+{:ok, index} = TantivyEx.Index.open_or_create("/path/to/index", schema)
+
+# Option 2: Create in-memory index for testing
 {:ok, index} = TantivyEx.Index.create_in_ram(schema)
+
+# Option 3: Create new persistent index (fails if exists)
+{:ok, index} = TantivyEx.Index.create_in_dir("/path/to/index", schema)
+
+# Option 4: Open existing index (fails if doesn't exist)
+{:ok, index} = TantivyEx.Index.open("/path/to/index")
 
 # Get a writer
 {:ok, writer} = TantivyEx.IndexWriter.new(index, 50_000_000)
@@ -327,10 +337,6 @@ schema = TantivyEx.Schema.new()
 {:ok, cluster_stats} = TantivyEx.Distributed.OTP.get_cluster_stats()
 IO.puts("Active nodes: #{cluster_stats.active_nodes}/#{cluster_stats.total_nodes}")
 ```
-
-## Contributing
-
-We welcome contributions! Please see [DEVELOPMENT.md](DEVELOPMENT.md) for development setup and guidelines.
 
 ### Development Setup
 

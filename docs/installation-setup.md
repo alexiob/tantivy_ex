@@ -137,5 +137,3 @@ mix test
 # Generate documentation
 mix docs
 ```
-
-See the [DEVELOPMENT.md](../DEVELOPMENT.md) file for detailed development instructions.

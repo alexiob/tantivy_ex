@@ -161,19 +161,9 @@ defmodule MyApp.SearchService do
 
   # Private functions
   defp load_index do
-    case File.exists?(@index_path) do
-      true ->
-        Logger.info("Opening existing search index at #{@index_path}")
-        Index.open(@index_path)
-      false ->
-        Logger.info("Creating new search index at #{@index_path}")
-        create_new_index()
-    end
-  end
-
-  defp create_new_index do
+    Logger.info("Opening or creating search index at #{@index_path}")
     {:ok, schema} = create_schema()
-    Index.create_in_dir(@index_path, schema)
+    Index.open_or_create(@index_path, schema)
   end
 
   defp create_schema do

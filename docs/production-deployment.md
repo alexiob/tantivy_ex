@@ -193,6 +193,10 @@ defmodule MyApp.SearchUpdater do
 
   defp rebuild_index(path, documents) do
     {:ok, schema} = MyApp.Search.get_schema()
+
+    # Remove existing index if present to ensure clean rebuild
+    if File.exists?(path), do: File.rm_rf!(path)
+
     {:ok, index} = TantivyEx.Index.create_in_dir(path, schema)
     {:ok, writer} = TantivyEx.IndexWriter.new(index)
 
@@ -299,11 +303,12 @@ defmodule MyApp.SearchHealthCheck do
   end
 
   defp check_index_status do
-    case Index.open(MyApp.SearchConfig.index_path()) do
-      {:ok, _index} -> :healthy
-      {:error, reason} ->
-        Logger.error("Index health check failed: #{inspect(reason)}")
-        :unhealthy
+    index_path = MyApp.SearchConfig.index_path()
+    if File.exists?(Path.join(index_path, "meta.json")) do
+      :healthy
+    else
+      Logger.error("Index health check failed: meta.json not found")
+      :unhealthy
     end
   end
 
@@ -642,3 +647,106 @@ end
 - [ ] Monitor query patterns
 
 This production deployment guide provides a solid foundation for running TantivyEx reliably in production environments with proper monitoring, backup strategies, and security considerations.
+
+## Index Initialization Strategy
+
+### Production-Ready Index Management
+
+For production applications, use the `open_or_create/2` function which provides robust index management:
+
+```elixir
+defmodule MyApp.Search.IndexManager do
+  require Logger
+  alias TantivyEx.Index
+
+  def init_index do
+    path = Application.get_env(:my_app, :search_index)[:path]
+
+    case ensure_index_directory(path) do
+      :ok ->
+        Logger.info("Initializing search index at #{path}")
+        {:ok, schema} = build_schema()
+
+        # This will open existing index or create new one
+        case Index.open_or_create(path, schema) do
+          {:ok, index} ->
+            Logger.info("Search index ready")
+            {:ok, index}
+
+          {:error, reason} ->
+            Logger.error("Failed to initialize index: #{inspect(reason)}")
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        Logger.error("Index directory setup failed: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp ensure_index_directory(path) do
+    dir = Path.dirname(path)
+
+    case File.mkdir_p(dir) do
+      :ok ->
+        Logger.debug("Index directory ready: #{dir}")
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to create index directory: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp build_schema do
+    # Define your schema here
+    schema = TantivyEx.Schema.new()
+    schema = TantivyEx.Schema.add_text_field(schema, "title", :text_stored)
+    schema = TantivyEx.Schema.add_text_field(schema, "content", :text)
+    # ... add other fields
+    {:ok, schema}
+  end
+end
+```
+
+### Index Function Comparison
+
+Choose the right function for your use case:
+
+| Function | Use Case | Behavior |
+|----------|----------|----------|
+| `create_in_dir/2` | New deployments | Creates new index, fails if exists |
+| `open/1` | Existing index only | Opens existing, fails if missing |
+| `open_or_create/2` | **Production recommended** | Opens existing or creates new |
+| `create_in_ram/1` | Testing/temporary | Creates in-memory index |
+
+### Error Handling
+
+```elixir
+defmodule MyApp.Search.SafeInitializer do
+  require Logger
+
+  def safe_init_index(path, schema, max_retries \\ 3) do
+    safe_init_index(path, schema, max_retries, 1)
+  end
+
+  defp safe_init_index(path, schema, max_retries, attempt) when attempt <= max_retries do
+    case TantivyEx.Index.open_or_create(path, schema) do
+      {:ok, index} ->
+        Logger.info("Index initialized successfully on attempt #{attempt}")
+        {:ok, index}
+
+      {:error, reason} ->
+        Logger.warning("Index init attempt #{attempt} failed: #{inspect(reason)}")
+
+        if attempt < max_retries do
+          :timer.sleep(1000 * attempt)  # Exponential backoff
+          safe_init_index(path, schema, max_retries, attempt + 1)
+        else
+          Logger.error("Index initialization failed after #{max_retries} attempts")
+          {:error, "Max retries exceeded: #{inspect(reason)}"}
+        end
+    end
+  end
+end
+```
