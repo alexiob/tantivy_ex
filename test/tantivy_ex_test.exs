@@ -216,4 +216,72 @@ defmodule TantivyExTest do
       end
     end
   end
+
+  describe "disk-based index operations" do
+    test "opens existing index from directory" do
+      schema = Schema.new()
+      schema = Schema.add_text_field(schema, "title", :text_stored)
+
+      # Create a temporary directory for testing
+      test_dir = "/tmp/test_tantivy_open_#{System.system_time(:millisecond)}"
+
+      # Create index first
+      {:ok, _index} = Index.create_in_dir(test_dir, schema)
+
+      # Now test opening it
+      case Index.open(test_dir) do
+        {:ok, opened_index} ->
+          assert is_reference(opened_index)
+
+        {:error, reason} ->
+          flunk("Failed to open existing index: #{reason}")
+      end
+
+      # Cleanup
+      File.rm_rf!(test_dir)
+    end
+
+    test "open_or_create creates new index when directory doesn't exist" do
+      schema = Schema.new()
+      schema = Schema.add_text_field(schema, "title", :text_stored)
+
+      # Use a new directory that doesn't exist
+      test_dir = "/tmp/test_tantivy_open_or_create_#{System.system_time(:millisecond)}"
+
+      case Index.open_or_create(test_dir, schema) do
+        {:ok, index} ->
+          assert is_reference(index)
+          assert File.exists?(test_dir)
+
+        {:error, reason} ->
+          flunk("Failed to create index with open_or_create: #{reason}")
+      end
+
+      # Cleanup
+      File.rm_rf!(test_dir)
+    end
+
+    test "open_or_create opens existing index when directory exists" do
+      schema = Schema.new()
+      schema = Schema.add_text_field(schema, "title", :text_stored)
+
+      # Create a temporary directory for testing
+      test_dir = "/tmp/test_tantivy_open_or_create_existing_#{System.system_time(:millisecond)}"
+
+      # Create index first
+      {:ok, _index1} = Index.create_in_dir(test_dir, schema)
+
+      # Now test open_or_create on existing directory
+      case Index.open_or_create(test_dir, schema) do
+        {:ok, index2} ->
+          assert is_reference(index2)
+
+        {:error, reason} ->
+          flunk("Failed to open existing index with open_or_create: #{reason}")
+      end
+
+      # Cleanup
+      File.rm_rf!(test_dir)
+    end
+  end
 end
