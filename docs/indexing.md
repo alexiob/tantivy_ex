@@ -134,28 +134,48 @@ end
 
 ### Document Updates and Deletions
 
-Currently, TantivyEx supports additive operations. For updates and deletions:
+TantivyEx supports both additive operations and document deletion:
 
 ```elixir
-# Pattern for document updates
+alias TantivyEx.{Index, IndexWriter, Query, Schema}
+
+# 1. Create or open an existing index
+{:ok, index} = Index.open_or_create("/path/to/index", schema)
+{:ok, writer} = IndexWriter.new(index)
+
+# 2. Delete documents matching a query
+{:ok, inactive_query} = Query.term(schema, "active", false)
+:ok = IndexWriter.delete_documents(writer, inactive_query)
+
+# 3. Delete all documents from the index
+:ok = IndexWriter.delete_all_documents(writer)
+
+# 4. Commit changes to make deletions visible
+:ok = IndexWriter.commit(writer)
+
+# 5. Rollback pending changes if needed
+:ok = IndexWriter.add_document(writer, doc)
+# If you decide not to add this document:
+:ok = IndexWriter.rollback(writer)
+```
+
+For document updates (which TantivyEx doesn't support natively), you can:
+
+```elixir
+# Pattern for document updates with unique ID
 defmodule MyApp.DocumentManager do
-  def update_document(index, doc_id, updated_fields) do
-    # 1. Create new index with updated data
-    # 2. Rebuild from authoritative data source
-    # 3. Replace old index atomically
+  def update_document(index, doc_id, updated_doc) do
+    {:ok, writer} = IndexWriter.new(index)
 
-    # This is the recommended pattern for now
-    rebuild_index_with_updates(index, doc_id, updated_fields)
-  end
+    # 1. Delete the existing document by ID
+    {:ok, id_query} = Query.term(schema, "id", doc_id)
+    :ok = IndexWriter.delete_documents(writer, id_query)
 
-  def delete_document(index, doc_id) do
-    # Similar pattern - rebuild without the document
-    rebuild_index_without_document(index, doc_id)
-  end
+    # 2. Add the updated document
+    :ok = IndexWriter.add_document(writer, updated_doc)
 
-  defp rebuild_index_with_updates(index, doc_id, updated_fields) do
-    # Implementation depends on your data source
-    # Typically involves re-indexing from database
+    # 3. Commit both operations
+    :ok = IndexWriter.commit(writer)
   end
 end
 ```
@@ -852,6 +872,99 @@ end
 
 ## Error Handling & Recovery
 
+### Using Rollback for Error Recovery
+
+```elixir
+defmodule MyApp.SafeIndexer do
+  require Logger
+  alias TantivyEx.IndexWriter
+
+  def safe_batch_index(index, documents) do
+    {:ok, writer} = IndexWriter.new(index)
+
+    try do
+      # Process each document
+      Enum.each(documents, fn document ->
+        validate_document!(document)
+        IndexWriter.add_document(writer, document)
+      end)
+
+      # Commit all changes if everything succeeded
+      :ok = IndexWriter.commit(writer)
+      {:ok, length(documents)}
+    rescue
+      e ->
+        # Roll back all pending changes on error
+        Logger.error("Batch indexing failed: #{inspect(e)}")
+        :ok = IndexWriter.rollback(writer)
+        {:error, :indexing_failed}
+    end
+  end
+
+  def safe_delete_by_query(index, query) do
+    {:ok, writer} = IndexWriter.new(index)
+
+    case IndexWriter.delete_documents(writer, query) do
+      :ok ->
+        # Commit the deletion
+        case IndexWriter.commit(writer) do
+          :ok -> {:ok, :deleted}
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, reason} ->
+        Logger.error("Failed to delete documents: #{inspect(reason)}")
+        :ok = IndexWriter.rollback(writer)
+        {:error, :deletion_failed}
+    end
+  end
+end
+```
+
+### Using Transactions Pattern
+
+```elixir
+defmodule MyApp.TransactionalIndexer do
+  alias TantivyEx.IndexWriter
+
+  def transaction(index, fun) when is_function(fun, 1) do
+    {:ok, writer} = IndexWriter.new(index)
+
+    try do
+      # Execute the transaction function with the writer
+      case fun.(writer) do
+        {:ok, result} ->
+          # On success, commit the changes
+          :ok = IndexWriter.commit(writer)
+          {:ok, result}
+
+        {:error, reason} ->
+          # On error, roll back the changes
+          :ok = IndexWriter.rollback(writer)
+          {:error, reason}
+      end
+    rescue
+      e ->
+        # On exception, roll back the changes
+        :ok = IndexWriter.rollback(writer)
+        {:error, {:exception, e}}
+    end
+  end
+end
+
+# Usage example
+MyApp.TransactionalIndexer.transaction(index, fn writer ->
+  :ok = IndexWriter.add_document(writer, doc1)
+  :ok = IndexWriter.add_document(writer, doc2)
+
+  if valid_operation? do
+    {:ok, :success}
+  else
+    {:error, :validation_failed}
+  end
+end)
+```
+
 ### Robust Error Handling
 
 ```elixir
@@ -908,120 +1021,6 @@ defmodule MyApp.RobustIndexer do
       {:error, reason} ->
         Logger.error("Commit failed: #{inspect(reason)}")
         {:error, {:commit_failed, reason}}
-    end
-  end
-end
-```
-
-### Dead Letter Queue for Failed Documents
-
-```elixir
-defmodule MyApp.DeadLetterQueue do
-  use GenServer
-  require Logger
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  def add_failed_document(document, reason) do
-    GenServer.cast(__MODULE__, {:failed_document, document, reason, DateTime.utc_now()})
-  end
-
-  def get_failed_documents(limit \\ 100) do
-    GenServer.call(__MODULE__, {:get_failed, limit})
-  end
-
-  def retry_failed_documents(index) do
-    GenServer.call(__MODULE__, {:retry_failed, index}, 30_000)
-  end
-
-  def init(opts) do
-    file_path = Keyword.get(opts, :file_path, "/tmp/failed_documents.json")
-    max_size = Keyword.get(opts, :max_size, 10_000)
-
-    failed_docs = load_failed_documents(file_path)
-
-    {:ok, %{
-      failed_documents: failed_docs,
-      file_path: file_path,
-      max_size: max_size
-    }}
-  end
-
-  def handle_cast({:failed_document, document, reason, timestamp}, state) do
-    failed_doc = %{
-      document: document,
-      reason: reason,
-      timestamp: timestamp,
-      retry_count: 0
-    }
-
-    new_failed = [failed_doc | state.failed_documents]
-
-    # Limit size
-    limited_failed = Enum.take(new_failed, state.max_size)
-
-    # Persist to disk
-    save_failed_documents(limited_failed, state.file_path)
-
-    {:noreply, %{state | failed_documents: limited_failed}}
-  end
-
-  def handle_call({:get_failed, limit}, _from, state) do
-    failed = Enum.take(state.failed_documents, limit)
-    {:reply, failed, state}
-  end
-
-  def handle_call({:retry_failed, index}, _from, state) do
-    {successful, still_failed} =
-      Enum.reduce(state.failed_documents, {[], []}, fn failed_doc, {success, failures} ->
-        case MyApp.RobustIndexer.index_with_retry(index, failed_doc.document, 1) do
-          {:ok, _} ->
-            Logger.info("Successfully retried failed document")
-            {[failed_doc | success], failures}
-
-          {:error, reason} ->
-            updated_failed = %{failed_doc |
-              retry_count: failed_doc.retry_count + 1,
-              reason: reason
-            }
-            {success, [updated_failed | failures]}
-        end
-      end)
-
-    # Commit if we had any successes
-    if length(successful) > 0 do
-      {:ok, writer} = TantivyEx.IndexWriter.new(index)
-      TantivyEx.IndexWriter.commit(writer)
-    end
-
-    # Update state with remaining failed documents
-    save_failed_documents(still_failed, state.file_path)
-
-    result = %{
-      retried: length(successful),
-      still_failed: length(still_failed)
-    }
-
-    {:reply, {:ok, result}, %{state | failed_documents: still_failed}}
-  end
-
-  defp load_failed_documents(file_path) do
-    case File.read(file_path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, docs} -> docs
-          {:error, _} -> []
-        end
-      {:error, _} -> []
-    end
-  end
-
-  defp save_failed_documents(failed_docs, file_path) do
-    case Jason.encode(failed_docs) do
-      {:ok, json} -> File.write(file_path, json)
-      {:error, _} -> :ok
     end
   end
 end

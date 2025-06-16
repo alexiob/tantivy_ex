@@ -518,4 +518,34 @@ defmodule TantivyEx.Query do
   rescue
     e -> {:error, "Failed to create more-like-this query: #{inspect(e)}"}
   end
+
+  # Facet Queries
+
+  @doc """
+  Creates a facet term query for exact facet matching.
+
+  Facet queries are optimized for filtering documents by facet values.
+  This is the preferred way to query facet fields.
+
+  ## Parameters
+
+  - `schema`: The index schema containing the facet field definition
+  - `field_name`: The name of the facet field
+  - `facet_value`: The exact facet value to match
+
+  ## Examples
+
+      iex> {:ok, query} = TantivyEx.Query.facet_term(schema, "categories", "electronics")
+      iex> is_reference(query)
+      true
+  """
+  @spec facet_term(Schema.t(), String.t(), String.t()) :: {:ok, t()} | {:error, String.t()}
+  def facet_term(schema, field_name, facet_value) when is_binary(field_name) and is_binary(facet_value) do
+    case Native.facet_term_query(schema, field_name, facet_value) do
+      {:error, reason} -> {:error, reason}
+      query_ref -> {:ok, query_ref}
+    end
+  rescue
+    e -> {:error, "Failed to create facet term query: #{inspect(e)}"}
+  end
 end

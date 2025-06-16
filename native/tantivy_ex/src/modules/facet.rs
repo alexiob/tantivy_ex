@@ -1,8 +1,8 @@
 use rustler::{NifResult, ResourceArc};
 use serde_json;
 use tantivy::collector::FacetCollector;
-use tantivy::query::{BooleanQuery, Occur, TermQuery};
-use tantivy::schema::{Facet, IndexRecordOption};
+use tantivy::query::{BooleanQuery, Occur};
+use tantivy::schema::Facet;
 use tantivy::Term as TantivyTerm;
 
 use crate::modules::resources::{QueryResource, SearcherResource};
@@ -126,38 +126,6 @@ fn insert_facet_hierarchically(
         full_path,
         serde_json::Value::Number(serde_json::Number::from(count)),
     );
-}
-
-/// Creates a term query for filtering by a specific facet
-#[rustler::nif]
-pub fn facet_term_query(
-    _field_name: String,
-    facet_path: String,
-) -> NifResult<ResourceArc<QueryResource>> {
-    let facet = match Facet::from_text(&facet_path) {
-        Ok(f) => f,
-        Err(e) => {
-            return Err(rustler::Error::Term(Box::new(format!(
-                "Invalid facet path '{}': {}",
-                facet_path, e
-            ))))
-        }
-    };
-
-    // We need the field from the searcher's schema to create the term
-    // For now, we'll create a placeholder - this needs to be improved
-    // to accept a schema reference or field reference
-    let term = TantivyTerm::from_facet(
-        tantivy::schema::Field::from_field_id(0), // This is a hack - needs proper field resolution
-        &facet,
-    );
-
-    let query = TermQuery::new(term, IndexRecordOption::Basic);
-    let query_resource = QueryResource {
-        query: Box::new(query),
-    };
-
-    Ok(ResourceArc::new(query_resource))
 }
 
 /// Creates a multi-facet boolean query

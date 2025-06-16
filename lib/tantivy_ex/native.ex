@@ -62,6 +62,9 @@ defmodule TantivyEx.Native do
   # Writer functions
   def writer_add_document(_writer, _document_json), do: :erlang.nif_error(:nif_not_loaded)
   def writer_commit(_writer), do: :erlang.nif_error(:nif_not_loaded)
+  def writer_delete_documents(_writer, _query), do: :erlang.nif_error(:nif_not_loaded)
+  def writer_delete_all_documents(_writer), do: :erlang.nif_error(:nif_not_loaded)
+  def writer_rollback(_writer), do: :erlang.nif_error(:nif_not_loaded)
 
   def writer_delete_term(_writer, _term_field, _term_value),
     do: :erlang.nif_error(:nif_not_loaded)
@@ -156,7 +159,7 @@ defmodule TantivyEx.Native do
   def facet_collector_for_field(_field_name), do: :erlang.nif_error(:nif_not_loaded)
   def facet_collector_add_facet(_collector, _facet_path), do: :erlang.nif_error(:nif_not_loaded)
   def facet_search(_searcher, _query, _collector), do: :erlang.nif_error(:nif_not_loaded)
-  def facet_term_query(_field_name, _facet_path), do: :erlang.nif_error(:nif_not_loaded)
+  def facet_term_query(_schema, _field_name, _facet_path), do: :erlang.nif_error(:nif_not_loaded)
   def facet_multi_query(_field_name, _facet_paths, _occur), do: :erlang.nif_error(:nif_not_loaded)
   def facet_from_text(_facet_path), do: :erlang.nif_error(:nif_not_loaded)
   def facet_to_string(_facet), do: :erlang.nif_error(:nif_not_loaded)

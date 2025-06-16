@@ -8,7 +8,8 @@ use tantivy::schema::{Field, FieldType, IndexRecordOption};
 use tantivy::{TantivyDocument, Term as TantivyTerm};
 
 use crate::modules::resources::{
-    atoms, convert_ip_to_ipv6, convert_json_value_to_btreemap, IndexWriterResource, SchemaResource,
+    atoms, convert_ip_to_ipv6, convert_json_value_to_btreemap, IndexWriterResource, QueryResource,
+    SchemaResource,
 };
 
 /// Document operations and validation functions
@@ -87,9 +88,19 @@ pub fn writer_add_document<'a>(
                     }
                 }
                 FieldType::Facet(_) => {
+                    // Handle both single strings and arrays of strings for facet fields
                     if let Ok(facet_val) = value.decode::<String>() {
                         if let Ok(facet) = tantivy::schema::Facet::from_text(&facet_val) {
                             tantivy_doc.add_facet(field, facet);
+                        }
+                    } else if let Ok(facet_array) = value.decode::<Vec<rustler::Term>>() {
+                        // Handle arrays of facet values
+                        for facet_item in facet_array {
+                            if let Ok(facet_val) = facet_item.decode::<String>() {
+                                if let Ok(facet) = tantivy::schema::Facet::from_text(&facet_val) {
+                                    tantivy_doc.add_facet(field, facet);
+                                }
+                            }
                         }
                     }
                 }
@@ -138,6 +149,58 @@ pub fn writer_commit<'a>(
         Ok(_) => Ok(atoms::ok().encode(env)),
         Err(e) => Err(rustler::Error::Term(Box::new(format!(
             "Failed to commit: {}",
+            e
+        )))),
+    }
+}
+
+#[rustler::nif]
+pub fn writer_delete_documents<'a>(
+    env: Env<'a>,
+    writer_res: ResourceArc<IndexWriterResource>,
+    query_res: ResourceArc<QueryResource>,
+) -> NifResult<Term<'a>> {
+    // Get a reference to the writer
+    let writer = writer_res.writer.lock().unwrap();
+    let query = query_res.query.box_clone();
+
+    // Delete documents matching the query
+    match writer.delete_query(query) {
+        Ok(_) => Ok(atoms::ok().encode(env)),
+        Err(e) => Err(rustler::Error::Term(Box::new(format!(
+            "Failed to delete documents by query: {}",
+            e
+        )))),
+    }
+}
+
+#[rustler::nif]
+pub fn writer_delete_all_documents<'a>(
+    env: Env<'a>,
+    writer_res: ResourceArc<IndexWriterResource>,
+) -> NifResult<Term<'a>> {
+    let writer = writer_res.writer.lock().unwrap();
+
+    match writer.delete_all_documents() {
+        Ok(_) => Ok(atoms::ok().encode(env)),
+        Err(e) => Err(rustler::Error::Term(Box::new(format!(
+            "Failed to delete all documents: {}",
+            e
+        )))),
+    }
+}
+
+#[rustler::nif]
+pub fn writer_rollback<'a>(
+    env: Env<'a>,
+    writer_res: ResourceArc<IndexWriterResource>,
+) -> NifResult<Term<'a>> {
+    let mut writer = writer_res.writer.lock().unwrap();
+
+    match writer.rollback() {
+        Ok(_) => Ok(atoms::ok().encode(env)),
+        Err(e) => Err(rustler::Error::Term(Box::new(format!(
+            "Failed to rollback: {}",
             e
         )))),
     }
@@ -467,9 +530,19 @@ pub fn writer_add_document_with_schema<'a>(
                     }
                 }
                 FieldType::Facet(_) => {
+                    // Handle both single strings and arrays of strings for facet fields
                     if let Ok(string_val) = value.decode::<String>() {
                         if let Ok(facet) = tantivy::schema::Facet::from_text(&string_val) {
                             tantivy_doc.add_facet(field, facet);
+                        }
+                    } else if let Ok(facet_array) = value.decode::<Vec<rustler::Term>>() {
+                        // Handle arrays of facet values
+                        for facet_item in facet_array {
+                            if let Ok(facet_val) = facet_item.decode::<String>() {
+                                if let Ok(facet) = tantivy::schema::Facet::from_text(&facet_val) {
+                                    tantivy_doc.add_facet(field, facet);
+                                }
+                            }
                         }
                     }
                 }
@@ -689,13 +762,25 @@ pub fn add_field_to_document(
             }
         }
         FieldType::Facet(_) => {
-            let string_val: String = value
-                .decode()
-                .map_err(|_| "Expected string value for facet")?;
-            let facet = tantivy::schema::Facet::from_text(&string_val)
-                .map_err(|_| "Invalid facet format".to_string())?;
-            doc.add_facet(field, facet);
-            Ok(())
+            // Handle both single strings and arrays of strings for facet fields
+            if let Ok(string_val) = value.decode::<String>() {
+                let facet = tantivy::schema::Facet::from_text(&string_val)
+                    .map_err(|_| "Invalid facet format".to_string())?;
+                doc.add_facet(field, facet);
+                Ok(())
+            } else if let Ok(facet_array) = value.decode::<Vec<rustler::Term>>() {
+                // Handle arrays of facet values
+                for facet_item in facet_array {
+                    if let Ok(facet_val) = facet_item.decode::<String>() {
+                        if let Ok(facet) = tantivy::schema::Facet::from_text(&facet_val) {
+                            doc.add_facet(field, facet);
+                        }
+                    }
+                }
+                Ok(())
+            } else {
+                Err("Expected string value or array of strings for facet".to_string())
+            }
         }
         FieldType::Bytes(_) => {
             if let Ok(bytes_val) = value.decode::<Vec<u8>>() {
@@ -787,12 +872,23 @@ pub fn validate_field_value(value: rustler::Term, field_type: &FieldType) -> Res
             }
         }
         FieldType::Facet(_) => {
-            let string_val: String = value
-                .decode()
-                .map_err(|_| "Expected string value for facet")?;
-            tantivy::schema::Facet::from_text(&string_val)
-                .map_err(|_| "Invalid facet format".to_string())?;
-            Ok(())
+            // Handle both single strings and arrays of strings for facet fields
+            if let Ok(string_val) = value.decode::<String>() {
+                tantivy::schema::Facet::from_text(&string_val)
+                    .map_err(|_| "Invalid facet format".to_string())?;
+                Ok(())
+            } else if let Ok(facet_array) = value.decode::<Vec<rustler::Term>>() {
+                // Handle arrays of facet values
+                for facet_item in facet_array {
+                    if let Ok(facet_val) = facet_item.decode::<String>() {
+                        tantivy::schema::Facet::from_text(&facet_val)
+                            .map_err(|_| "Invalid facet format".to_string())?;
+                    }
+                }
+                Ok(())
+            } else {
+                Err("Expected string value or array of strings for facet".to_string())
+            }
         }
         FieldType::Bytes(_) => {
             if value.decode::<Vec<u8>>().is_ok() {

@@ -6,7 +6,7 @@ defmodule TantivyEx.IndexWriter do
   changes to make them searchable.
   """
 
-  alias TantivyEx.{Native, Index}
+  alias TantivyEx.{Native, Index, Query}
 
   @type t :: reference()
 
@@ -96,5 +96,87 @@ defmodule TantivyEx.IndexWriter do
     end
   rescue
     e -> {:error, "Failed to commit: #{inspect(e)}"}
+  end
+
+  @doc """
+  Deletes all documents matching the given query.
+
+  This operation marks documents for deletion but does not make the
+  deletions visible until the writer is committed.
+
+  ## Parameters
+
+  - `writer`: The IndexWriter
+  - `query`: A TantivyEx.Query to match documents to delete
+
+  ## Examples
+
+      iex> query = TantivyEx.Query.term(schema, "status", "inactive")
+      iex> :ok = TantivyEx.IndexWriter.delete_documents(writer, query)
+      :ok
+  """
+  @spec delete_documents(t(), Query.t()) :: :ok | {:error, String.t()}
+  def delete_documents(writer, query) do
+    case Native.writer_delete_documents(writer, query) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+      _ -> :ok
+    end
+  rescue
+    e -> {:error, "Failed to delete documents: #{inspect(e)}"}
+  end
+
+  @doc """
+  Deletes all documents in the index.
+
+  This operation marks all documents for deletion but does not make the
+  deletions visible until the writer is committed.
+
+  ## Parameters
+
+  - `writer`: The IndexWriter
+
+  ## Examples
+
+      iex> :ok = TantivyEx.IndexWriter.delete_all_documents(writer)
+      :ok
+      iex> :ok = TantivyEx.IndexWriter.commit(writer)
+      :ok
+  """
+  @spec delete_all_documents(t()) :: :ok | {:error, String.t()}
+  def delete_all_documents(writer) do
+    case Native.writer_delete_all_documents(writer) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+      _ -> :ok
+    end
+  rescue
+    e -> {:error, "Failed to delete all documents: #{inspect(e)}"}
+  end
+
+  @doc """
+  Rolls back any pending changes and cancels the current operation.
+
+  This should be called when errors occur during a batch index operation
+  to avoid partial updates.
+
+  ## Parameters
+
+  - `writer`: The IndexWriter
+
+  ## Examples
+
+      iex> :ok = TantivyEx.IndexWriter.rollback(writer)
+      :ok
+  """
+  @spec rollback(t()) :: :ok | {:error, String.t()}
+  def rollback(writer) do
+    case Native.writer_rollback(writer) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+      _ -> :ok
+    end
+  rescue
+    e -> {:error, "Failed to rollback: #{inspect(e)}"}
   end
 end

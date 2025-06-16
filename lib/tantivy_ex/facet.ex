@@ -177,6 +177,7 @@ defmodule TantivyEx.Facet do
   Creates a term query for filtering by a specific facet.
 
   ## Parameters
+  - `schema` - The index schema containing the facet field definition
   - `field_name` - The facet field name
   - `facet_path` - The facet path to filter by
 
@@ -185,13 +186,13 @@ defmodule TantivyEx.Facet do
   - `{:error, reason}` on failure
 
   ## Example
-      {:ok, facet_query} = TantivyEx.Facet.facet_term_query("category", "/electronics/laptops")
+      {:ok, facet_query} = TantivyEx.Facet.facet_term_query(schema, "category", "/electronics/laptops")
       {:ok, results} = TantivyEx.Searcher.search(searcher, facet_query, 100, true)
   """
-  @spec facet_term_query(String.t(), String.t()) :: {:ok, reference()} | {:error, String.t()}
-  def facet_term_query(field_name, facet_path)
+  @spec facet_term_query(reference(), String.t(), String.t()) :: {:ok, reference()} | {:error, String.t()}
+  def facet_term_query(schema, field_name, facet_path)
       when is_binary(field_name) and is_binary(facet_path) do
-    case Native.facet_term_query(field_name, facet_path) do
+    case Native.facet_term_query(schema, field_name, facet_path) do
       {:ok, query_ref} -> {:ok, query_ref}
       {:error, reason} -> {:error, reason}
     end

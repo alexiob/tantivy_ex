@@ -42,5 +42,7 @@ checksum-*.exs
 
 # Examples
 
+examples/giggle/priv/giggle
 examples/giggle/priv/crawled_content
 examples/giggle/priv/search_index*
+examples/giggle/dets_simple_storage

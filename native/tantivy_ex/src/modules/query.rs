@@ -704,3 +704,39 @@ pub fn query_extract_terms(
 
     term_set.into_iter().collect()
 }
+
+#[rustler::nif]
+pub fn facet_term_query(
+    schema_res: ResourceArc<SchemaResource>,
+    field_name: String,
+    facet_path: String,
+) -> NifResult<ResourceArc<QueryResource>> {
+    // Get the field from the schema
+    let field = match schema_res.schema.get_field(&field_name) {
+        Ok(f) => f,
+        Err(_) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Field '{}' not found in schema",
+                field_name
+            ))))
+        }
+    };
+
+    // Parse the facet from the path string
+    let facet = match tantivy::schema::Facet::from_text(&facet_path) {
+        Ok(f) => f,
+        Err(e) => {
+            return Err(rustler::Error::Term(Box::new(format!(
+                "Invalid facet path '{}': {}",
+                facet_path, e
+            ))))
+        }
+    };
+
+    // Create the term query for the facet
+    let term = TantivyTerm::from_facet(field, &facet);
+    let query = TermQuery::new(term, tantivy::schema::IndexRecordOption::Basic);
+    let boxed_query: Box<dyn tantivy::query::Query> = Box::new(query);
+
+    Ok(ResourceArc::new(QueryResource { query: boxed_query }))
+}
