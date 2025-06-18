@@ -255,7 +255,7 @@ pub fn reader_manager_create_reader(
 }
 
 /// Manually reload a reader
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 pub fn reader_manager_reload_reader(
     manager: ResourceArc<ReaderManagerResource>,
     reader_id: String,

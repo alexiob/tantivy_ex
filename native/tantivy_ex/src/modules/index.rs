@@ -6,7 +6,7 @@ use tantivy::{directory::MmapDirectory, Index};
 use crate::modules::resources::{IndexResource, IndexWriterResource, SchemaResource};
 
 /// Index creation and management functions
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 pub fn index_create_in_dir(
     path: String,
     schema_res: ResourceArc<SchemaResource>,
@@ -80,7 +80,7 @@ pub fn index_reader<'a>(
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 pub fn index_open_in_dir(path: String) -> NifResult<ResourceArc<IndexResource>> {
     let index_path = Path::new(&path);
 
@@ -95,7 +95,7 @@ pub fn index_open_in_dir(path: String) -> NifResult<ResourceArc<IndexResource>> 
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 pub fn index_open_or_create_in_dir(
     path: String,
     schema_res: ResourceArc<SchemaResource>,

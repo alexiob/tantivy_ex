@@ -58,7 +58,7 @@ pub struct AggregationOptions {
     pub keyed: Option<bool>,
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn run_aggregations<'a>(
     env: Env<'a>,
     searcher_res: ResourceArc<SearcherResource>,
@@ -95,7 +95,7 @@ pub fn run_aggregations<'a>(
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn run_search_with_aggregations<'a>(
     env: Env<'a>,
     searcher_res: ResourceArc<SearcherResource>,

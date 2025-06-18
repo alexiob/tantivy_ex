@@ -162,7 +162,7 @@ pub fn index_warming_add_preload_queries(
 }
 
 /// Warm an index with preload queries
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn index_warming_warm_index(
     warming_resource: ResourceArc<IndexWarmingResource>,
     index_resource: ResourceArc<IndexResource>,
@@ -237,7 +237,7 @@ pub fn index_warming_get_searcher(
 }
 
 /// Evict cached entries based on policy
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn index_warming_evict_cache(
     warming_resource: ResourceArc<IndexWarmingResource>,
     force_all: bool,

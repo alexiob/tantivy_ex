@@ -64,7 +64,7 @@ pub fn facet_collector_add_facet(
 }
 
 /// Performs a search with facet collection
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn facet_search(
     searcher_res: ResourceArc<SearcherResource>,
     query_res: ResourceArc<QueryResource>,

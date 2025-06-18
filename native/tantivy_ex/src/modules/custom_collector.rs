@@ -1,10 +1,8 @@
 use rustler::{Error, NifResult, ResourceArc};
+use serde_json;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tantivy::{
-    DocId, Score, SegmentOrdinal, SegmentReader
-};
-use serde_json;
+use tantivy::{DocId, Score, SegmentOrdinal, SegmentReader};
 
 use crate::modules::resources::IndexResource;
 
@@ -18,7 +16,11 @@ pub struct CustomCollectorResource {
 
 /// Custom collector trait for user-defined collection logic
 pub trait CustomCollector: Send + Sync {
-    fn collect_segment(&mut self, segment_reader: &SegmentReader, segment_ord: SegmentOrdinal) -> NifResult<()>;
+    fn collect_segment(
+        &mut self,
+        segment_reader: &SegmentReader,
+        segment_ord: SegmentOrdinal,
+    ) -> NifResult<()>;
     fn merge_results(&mut self, other: Box<dyn CustomCollector>) -> NifResult<()>;
     fn get_results(&self) -> NifResult<CollectionResult>;
     fn name(&self) -> &str;
@@ -37,11 +39,24 @@ pub struct ScoringFunction {
 /// Types of scoring functions
 #[derive(Debug, Clone)]
 pub enum ScoringType {
-    BM25 { k1: f64, b: f64 },
-    TFIDF { normalize: bool },
-    Custom { formula: String },
-    Boosted { base_scorer: Box<ScoringType>, field_boosts: HashMap<String, f64> },
-    Combined { scorers: Vec<ScoringType>, weights: Vec<f64> },
+    BM25 {
+        k1: f64,
+        b: f64,
+    },
+    TFIDF {
+        normalize: bool,
+    },
+    Custom {
+        formula: String,
+    },
+    Boosted {
+        base_scorer: Box<ScoringType>,
+        field_boosts: HashMap<String, f64>,
+    },
+    Combined {
+        scorers: Vec<ScoringType>,
+        weights: Vec<f64>,
+    },
 }
 
 /// Results from custom collection
@@ -132,7 +147,11 @@ impl CustomCollectorResource {
 }
 
 impl CustomCollector for TopKCollector {
-    fn collect_segment(&mut self, _segment_reader: &SegmentReader, _segment_ord: SegmentOrdinal) -> NifResult<()> {
+    fn collect_segment(
+        &mut self,
+        _segment_reader: &SegmentReader,
+        _segment_ord: SegmentOrdinal,
+    ) -> NifResult<()> {
         // Simplified implementation - in reality would collect docs and score them
         Ok(())
     }
@@ -159,7 +178,11 @@ impl CustomCollector for TopKCollector {
 }
 
 impl CustomCollector for AggregationCollector {
-    fn collect_segment(&mut self, _segment_reader: &SegmentReader, _segment_ord: SegmentOrdinal) -> NifResult<()> {
+    fn collect_segment(
+        &mut self,
+        _segment_reader: &SegmentReader,
+        _segment_ord: SegmentOrdinal,
+    ) -> NifResult<()> {
         // Simplified implementation - would aggregate values from documents
         self.doc_count += 100; // Placeholder
         Ok(())
@@ -187,7 +210,11 @@ impl CustomCollector for AggregationCollector {
 }
 
 impl CustomCollector for FilteringCollector {
-    fn collect_segment(&mut self, _segment_reader: &SegmentReader, _segment_ord: SegmentOrdinal) -> NifResult<()> {
+    fn collect_segment(
+        &mut self,
+        _segment_reader: &SegmentReader,
+        _segment_ord: SegmentOrdinal,
+    ) -> NifResult<()> {
         // Simplified implementation - would filter documents based on criteria
         Ok(())
     }
@@ -230,8 +257,16 @@ pub fn custom_collector_create_scoring_function(
 ) -> NifResult<rustler::types::atom::Atom> {
     let scoring_function = match scoring_type.as_str() {
         "bm25" => {
-            let k1 = parameters.iter().find(|(k, _)| k == "k1").map(|(_, v)| *v).unwrap_or(1.2);
-            let b = parameters.iter().find(|(k, _)| k == "b").map(|(_, v)| *v).unwrap_or(0.75);
+            let k1 = parameters
+                .iter()
+                .find(|(k, _)| k == "k1")
+                .map(|(_, v)| *v)
+                .unwrap_or(1.2);
+            let b = parameters
+                .iter()
+                .find(|(k, _)| k == "b")
+                .map(|(_, v)| *v)
+                .unwrap_or(0.75);
             ScoringFunction {
                 name: name.clone(),
                 function_type: ScoringType::BM25 { k1, b },
@@ -239,9 +274,13 @@ pub fn custom_collector_create_scoring_function(
                 boost_fields: HashMap::new(),
                 custom_formula: None,
             }
-        },
+        }
         "tfidf" => {
-            let normalize = parameters.iter().find(|(k, _)| k == "normalize").map(|(_, v)| *v > 0.0).unwrap_or(true);
+            let normalize = parameters
+                .iter()
+                .find(|(k, _)| k == "normalize")
+                .map(|(_, v)| *v > 0.0)
+                .unwrap_or(true);
             ScoringFunction {
                 name: name.clone(),
                 function_type: ScoringType::TFIDF { normalize },
@@ -249,15 +288,15 @@ pub fn custom_collector_create_scoring_function(
                 boost_fields: HashMap::new(),
                 custom_formula: None,
             }
-        },
-        "custom" => {
-            ScoringFunction {
-                name: name.clone(),
-                function_type: ScoringType::Custom { formula: "score * boost".to_string() },
-                parameters: parameters.into_iter().collect(),
-                boost_fields: HashMap::new(),
-                custom_formula: Some("score * boost".to_string()),
-            }
+        }
+        "custom" => ScoringFunction {
+            name: name.clone(),
+            function_type: ScoringType::Custom {
+                formula: "score * boost".to_string(),
+            },
+            parameters: parameters.into_iter().collect(),
+            boost_fields: HashMap::new(),
+            custom_formula: Some("score * boost".to_string()),
         },
         _ => return Err(Error::BadArg),
     };
@@ -277,7 +316,8 @@ pub fn custom_collector_create_top_k(
     scoring_function_name: String,
 ) -> NifResult<rustler::types::atom::Atom> {
     let scoring_functions = collector_resource.scoring_functions.lock().unwrap();
-    let scoring_function = scoring_functions.get(&scoring_function_name)
+    let scoring_function = scoring_functions
+        .get(&scoring_function_name)
         .ok_or(Error::BadArg)?
         .clone();
 
@@ -378,7 +418,7 @@ pub fn custom_collector_create_filtering(
 }
 
 /// Execute collection with a custom collector
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn custom_collector_execute(
     collector_resource: ResourceArc<CustomCollectorResource>,
     index_resource: ResourceArc<IndexResource>,

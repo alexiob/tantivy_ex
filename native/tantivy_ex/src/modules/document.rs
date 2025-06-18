@@ -139,7 +139,7 @@ pub fn writer_add_document<'a>(
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 pub fn writer_commit<'a>(
     env: Env<'a>,
     writer_res: ResourceArc<IndexWriterResource>,
@@ -154,7 +154,7 @@ pub fn writer_commit<'a>(
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn writer_delete_documents<'a>(
     env: Env<'a>,
     writer_res: ResourceArc<IndexWriterResource>,
@@ -581,7 +581,7 @@ pub fn writer_add_document_with_schema<'a>(
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn writer_add_document_batch<'a>(
     env: Env<'a>,
     writer_res: ResourceArc<IndexWriterResource>,

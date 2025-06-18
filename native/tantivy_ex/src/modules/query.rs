@@ -641,7 +641,7 @@ pub fn query_more_like_this(
     }))
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn query_extract_terms(
     query_res: ResourceArc<QueryResource>,
     _schema_res: ResourceArc<SchemaResource>,

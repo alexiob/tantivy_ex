@@ -5,6 +5,29 @@ All notable changes to TantivyEx will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-06-18
+
+### Changed
+
+#### Performance: Dirty NIFs Migration
+
+- **Migrated performance-critical NIFs to dirty schedulers** - Implemented dirty NIFs for long-running operations to prevent blocking the Erlang VM scheduler:
+  - **DirtyCpu schedulers**: Applied to CPU-intensive operations including:
+    - **Search operations**: `searcher_search`, `searcher_search_with_query` - Full-text search and query-based operations
+    - **Document processing**: `writer_add_document_batch`, `writer_delete_documents` - Batch operations and query-based deletions
+    - **Aggregations**: `run_aggregations`, `run_search_with_aggregations` - Statistical computations and combined operations
+    - **Text processing**: `tokenize_text_detailed`, `process_pre_tokenized_text`, `register_default_tokenizers` - Complex tokenization operations
+    - **Analysis operations**: `facet_search`, `query_extract_terms`, `custom_collector_execute` - Search analytics and custom collections
+    - **Space analysis**: `space_analysis_analyze_index`, `space_analysis_compare` - Index analysis and comparison operations
+    - **Cache management**: `index_warming_warm_index`, `index_warming_evict_cache` - Index warming and cache operations
+  - **DirtyIo schedulers**: Applied to I/O-intensive operations including:
+    - **Index file operations**: `index_create_in_dir`, `index_open_in_dir`, `index_open_or_create_in_dir` - File system operations
+    - **Commit operations**: `writer_commit` - Operations that can trigger index merging and disk writes
+    - **Reader management**: `reader_manager_reload_reader` - Reader reloading with potential I/O
+  - **Impact**: Prevents scheduler blocking, enables true concurrency for search operations, and maintains VM responsiveness under heavy load
+  - **Compatibility**: All changes are backward compatible with no API changes required
+  - **Testing**: Full test suite passes (467 tests, 0 failures) confirming functionality is preserved
+
 ## [0.3.4] - 2025-06-16
 
 ### Added

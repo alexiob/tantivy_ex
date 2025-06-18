@@ -1,6 +1,6 @@
 # TantivyEx
 
-[![Elixir CI](https://github.com/alexiob/tantivy_ex/workflows/Elixir%20CI/badge.svg)](https://github.com/alexiob/tantivy_ex/actions)
+[![Elixir CI](https://github.com/alexiob/tantivy_ex/actions/workflows/ci.yml/badge.svg)](https://github.com/alexiob/tantivy_ex/actions)
 [![Hex Version](https://img.shields.io/hexpm/v/tantivy_ex.svg)](https://hex.pm/packages/tantivy_ex)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/tantivy_ex/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -144,7 +144,7 @@ TantivyEx requires:
 
 ## Documentation
 
-### 📚 Complete Guides
+### Complete Guides
 
 **[Browse All Guides →](docs/guides.md)**
 
@@ -160,7 +160,7 @@ TantivyEx requires:
 - **[Production Deployment](docs/production-deployment.md)**: Scalability, monitoring, and operational best practices
 - **[Integration Patterns](docs/integration-patterns.md)**: Phoenix/LiveView integration and advanced architectures
 
-### 🔧 API Documentation
+### API Documentation
 
 #### Core Components
 
@@ -355,8 +355,3 @@ TantivyEx is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for d
 
 - **[Tantivy](https://github.com/quickwit-oss/tantivy)**: The powerful Rust search engine that powers TantivyEx
 - **[Rustler](https://github.com/rusterlium/rustler)**: For excellent Rust-Elixir integration
-- **Elixir Community**: For inspiration and feedback
-
----
-
-**Ready to build powerful search applications?** Check out our [guides](docs/guides.md) and start searching! 🔍

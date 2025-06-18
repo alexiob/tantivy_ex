@@ -1,8 +1,8 @@
 use rustler::{Error, NifResult, ResourceArc};
-use std::collections::{HashMap, BTreeMap};
+use serde_json;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use tantivy::{Index, Segment};
-use serde_json;
 
 use crate::modules::resources::IndexResource;
 
@@ -139,7 +139,7 @@ pub fn space_analysis_configure(
 }
 
 /// Analyze space usage for an index
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn space_analysis_analyze_index(
     analysis_resource: ResourceArc<SpaceAnalysisResource>,
     index_resource: ResourceArc<IndexResource>,
@@ -149,7 +149,11 @@ pub fn space_analysis_analyze_index(
 
     // Perform comprehensive space analysis
     let total_size = estimate_index_size(&index_resource.index);
-    let segment_count = index_resource.index.searchable_segments().unwrap_or_default().len();
+    let segment_count = index_resource
+        .index
+        .searchable_segments()
+        .unwrap_or_default()
+        .len();
 
     // Analyze segments
     let segments = analyze_segments(&index_resource.index, &config)?;
@@ -249,7 +253,7 @@ pub fn space_analysis_get_cached(
 }
 
 /// Compare space usage between two analyses
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn space_analysis_compare(
     analysis_resource: ResourceArc<SpaceAnalysisResource>,
     analysis_id_1: String,
@@ -262,7 +266,8 @@ pub fn space_analysis_compare(
 
     let size_diff = analysis_2.total_size_bytes as i64 - analysis_1.total_size_bytes as i64;
     let segment_diff = analysis_2.segment_count as i32 - analysis_1.segment_count as i32;
-    let doc_diff = analysis_2.index_metadata.total_docs as i64 - analysis_1.index_metadata.total_docs as i64;
+    let doc_diff =
+        analysis_2.index_metadata.total_docs as i64 - analysis_1.index_metadata.total_docs as i64;
 
     let response = serde_json::json!({
         "comparison": {
@@ -314,7 +319,8 @@ pub fn space_analysis_get_recommendations(
     }
 
     // Check for deleted documents
-    let deletion_ratio = analysis.index_metadata.deleted_docs as f64 / analysis.index_metadata.total_docs as f64;
+    let deletion_ratio =
+        analysis.index_metadata.deleted_docs as f64 / analysis.index_metadata.total_docs as f64;
     if deletion_ratio > 0.1 {
         recommendations.push(serde_json::json!({
             "type": "optimize_deletes",
@@ -371,9 +377,9 @@ fn analyze_segments(index: &Index, config: &AnalysisConfig) -> NifResult<Vec<Seg
             let segment_analysis = SegmentAnalysis {
                 segment_id: format!("segment_{}", i),
                 size_bytes: 1024 * 1024, // Placeholder
-                doc_count: 1000, // Placeholder - would need segment reader
-                deleted_docs: 0, // Placeholder - would need segment reader
-                compression_ratio: 0.8, // Placeholder
+                doc_count: 1000,         // Placeholder - would need segment reader
+                deleted_docs: 0,         // Placeholder - would need segment reader
+                compression_ratio: 0.8,  // Placeholder
                 files: if config.include_file_details {
                     analyze_segment_files(segment)
                 } else {
@@ -432,7 +438,7 @@ fn analyze_index_metadata(index: &Index) -> NifResult<IndexMetadata> {
 
     let metadata = IndexMetadata {
         total_docs: searcher.num_docs() as u64,
-        deleted_docs: 0, // Simplified
+        deleted_docs: 0,         // Simplified
         schema_size_bytes: 1024, // Placeholder
         num_fields: schema.fields().count(),
         index_settings: BTreeMap::new(), // Placeholder
@@ -468,6 +474,7 @@ fn estimate_merge_savings(analysis: &SpaceAnalysis) -> u64 {
 
 fn estimate_deletion_savings(analysis: &SpaceAnalysis) -> u64 {
     // Estimate savings from optimizing deleted documents
-    let deletion_ratio = analysis.index_metadata.deleted_docs as f64 / analysis.index_metadata.total_docs as f64;
+    let deletion_ratio =
+        analysis.index_metadata.deleted_docs as f64 / analysis.index_metadata.total_docs as f64;
     (analysis.total_size_bytes as f64 * deletion_ratio * 0.8) as u64 // 80% of deleted doc space can be reclaimed
 }

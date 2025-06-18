@@ -423,7 +423,7 @@ pub fn tokenize_text(tokenizer_name: String, text: String) -> NifResult<Vec<Stri
 }
 
 /// Tokenize text and return detailed token information
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn tokenize_text_detailed(
     tokenizer_name: String,
     text: String,
@@ -449,7 +449,7 @@ pub fn tokenize_text_detailed(
 }
 
 /// Process pre-tokenized text
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn process_pre_tokenized_text(tokens: Vec<String>) -> NifResult<String> {
     // Convert strings to Token structs
     let token_structs: Vec<Token> = tokens
@@ -480,7 +480,7 @@ pub fn process_pre_tokenized_text(tokens: Vec<String>) -> NifResult<String> {
 }
 
 /// Register common tokenizers with sensible defaults
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn register_default_tokenizers() -> NifResult<String> {
     // Register basic tokenizers
     register_tokenizer_with_tracking("default", SimpleTokenizer::default());

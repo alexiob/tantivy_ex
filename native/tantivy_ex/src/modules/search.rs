@@ -9,7 +9,7 @@ use crate::modules::resources::{QueryResource, SearcherResource};
 
 /// Search and retrieval functions
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn searcher_search<'a>(
     env: Env<'a>,
     searcher_res: ResourceArc<SearcherResource>,
@@ -124,7 +124,7 @@ pub fn searcher_search<'a>(
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 pub fn searcher_search_with_query(
     searcher_res: ResourceArc<SearcherResource>,
     query_res: ResourceArc<QueryResource>,
