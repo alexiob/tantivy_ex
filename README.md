@@ -136,6 +136,17 @@ def deps do
 end
 ```
 
+The package includes precompiled NIF files for common platforms, but will compile from source if needed.
+
+To force NIF compilation, set the `TANTIVY_EX_BUILD` environment variable to `true`:
+
+```bash
+export TANTIVY_EX_BUILD=true
+
+mix clean;
+mix compile;
+```
+
 TantivyEx requires:
 
 - **Elixir**: 1.18 or later
