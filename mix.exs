@@ -45,7 +45,23 @@ defmodule TantivyEx.MixProject do
 
   defp rustler_crates do
     [
-      tantivy_ex: [path: "native/tantivy_ex", mode: rustler_mode()]
+      tantivy_ex: [
+        path: "native/tantivy_ex",
+        mode: rustler_mode(),
+        targets: [
+          # Linux
+          "aarch64-unknown-linux-gnu",
+          "arm-unknown-linux-gnueabihf",
+          "riscv64gc-unknown-linux-gnu",
+          "x86_64-unknown-linux-gnu",
+          # macOS
+          "aarch64-apple-darwin",
+          "x86_64-apple-darwin",
+          # Windows
+          "x86_64-pc-windows-gnu",
+          "x86_64-pc-windows-msvc"
+        ]
+      ]
     ]
   end
 

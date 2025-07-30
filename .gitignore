@@ -37,9 +37,6 @@ tantivy_ex-*.tar
 # MacOS Finder directory attributes
 .DS_Store
 
-# The checksum files for precompiled NIFs
-checksum-*.exs
-
 # Examples
 
 examples/giggle/priv/giggle
