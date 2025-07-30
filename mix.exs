@@ -1,7 +1,7 @@
 defmodule TantivyEx.MixProject do
   use Mix.Project
 
-  @version "0.4.0"
+  @version "0.4.1"
   @source_url "https://github.com/alexiob/tantivy_ex"
 
   def project do
@@ -36,7 +36,7 @@ defmodule TantivyEx.MixProject do
   defp deps do
     [
       {:rustler_precompiled, "~> 0.4"},
-      {:rustler, "~> 0.36.1"},
+      {:rustler, "~> 0.36.1", runtime: false, optional: true},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:igniter, "~> 0.6", optional: true},
       {:jason, "~> 1.4"}

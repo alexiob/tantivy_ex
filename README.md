@@ -131,7 +131,7 @@ Add `tantivy_ex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:tantivy_ex, "~> 0.1.0"}
+    {:tantivy_ex, "~> 0.4.1"}
   ]
 end
 ```
