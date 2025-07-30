@@ -15,8 +15,8 @@ jobs:
 
     env:
       MIX_ENV: test
-      RUSTLER_NIF_VERSION: "2.16"
-      RUSTLER_TARGET_DIR: native/tantivy_ex/target
+      PHX_CI: true
+      TANTIVY_EX_BUILD: true
 
     strategy:
       matrix:

@@ -10,7 +10,7 @@ defmodule TantivyEx.Native do
     crate: "tantivy_ex",
     version: version,
     base_url: "#{github_url}/releases/download/v#{version}",
-    force_build: System.get_env("TANTIVY_EXT_BUILD") in ["1", "true"]
+    force_build: System.get_env("TANTIVY_EX_BUILD") in ["1", "true"]
 
   # Schema functions
   def schema_builder_new(), do: :erlang.nif_error(:nif_not_loaded)
