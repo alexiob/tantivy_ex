@@ -2,7 +2,7 @@ defmodule TantivyEx.MixProject do
   use Mix.Project
 
   @version "0.4.0"
-  @source_url "https://github.com/alex-nexus/tantivy_ex"
+  @source_url "https://github.com/alexiob/tantivy_ex"
 
   def project do
     [
