@@ -80,7 +80,7 @@ defmodule TantivyEx.MixProject do
     [
       name: "tantivy_ex",
       files:
-        ~w(lib priv native/tantivy_ex/src native/tantivy_ex/Cargo.toml native/tantivy_ex/Cargo.lock native/tantivy_ex/Cross.toml docs .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
+        ~w(lib priv native/tantivy_ex/src native/tantivy_ex/Cargo.toml native/tantivy_ex/Cargo.lock native/tantivy_ex/Cross.toml docs .formatter.exs mix.exs README* LICENSE* CHANGELOG* checksum-Elixir.TantivyEx.Native.exs),
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url,
