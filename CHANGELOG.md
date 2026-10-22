@@ -5,6 +5,12 @@ All notable changes to TantivyEx will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Snippets with Tantivy's `SnippetGenerator`** - `TantivyEx.Searcher.snippet/5` returns the fragment of a text that best matches a query, with the byte ranges of the matched terms. Terms are matched with the field's tokenizer, as in the search, and the text does not need to be stored in the index.
+
 ## [0.4.0] - 2025-06-18
 
 ### Changed

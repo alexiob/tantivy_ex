@@ -17,6 +17,10 @@ defmodule TantivyEx.Searcher do
           doc_id: pos_integer(),
           document: map()
         }
+  @type snippet :: %{
+          fragment: String.t(),
+          highlighted: [{non_neg_integer(), non_neg_integer()}]
+        }
 
   @doc """
   Creates a new Searcher for the given index.
@@ -110,6 +114,49 @@ defmodule TantivyEx.Searcher do
     end
   rescue
     e -> {:error, "Failed to search with query: #{inspect(e)}"}
+  end
+
+  @doc """
+  Generates a snippet of `text`, with the terms of `query` found in `field`.
+
+  This uses Tantivy's `SnippetGenerator`: `text` is tokenized with the field's
+  tokenizer, so terms match exactly as they do in the search (case, stemming,
+  whole words). The text does not need to be stored in the index: pass the
+  field's text of a search result, from the index or from elsewhere.
+
+  Returns the fragment of `text` that best matches the query, and the byte
+  ranges `{start, stop}` of its highlighted terms (`stop` excluded), usable
+  with `binary_part(fragment, start, stop - start)`. When no term matches,
+  the fragment is empty.
+
+  ## Parameters
+
+  - `searcher`: The Searcher
+  - `query`: The query whose terms are highlighted (Query.t())
+  - `field`: The name of the text field the terms are taken from
+  - `text`: The text to extract the snippet from
+  - `opts`:
+    - `:max_num_chars` - Maximum length of the fragment (default: 150)
+
+  ## Examples
+
+      iex> {:ok, parser} = TantivyEx.Query.parser(index, ["body"])
+      iex> {:ok, query} = TantivyEx.Query.parse(parser, "rust")
+      iex> {:ok, snippet} = TantivyEx.Searcher.snippet(searcher, query, "body", "Learn Rust today")
+      iex> snippet
+      %{fragment: "Learn Rust today", highlighted: [{6, 10}]}
+  """
+  @spec snippet(t(), Query.t(), String.t(), String.t(), keyword()) ::
+          {:ok, snippet()} | {:error, String.t()}
+  def snippet(searcher, query, field, text, opts \\ []) when is_reference(query) do
+    max_num_chars = Keyword.get(opts, :max_num_chars, 150)
+
+    case Native.searcher_snippet(searcher, query, field, text, max_num_chars) do
+      {:error, reason} -> {:error, reason}
+      {fragment, highlighted} -> {:ok, %{fragment: fragment, highlighted: highlighted}}
+    end
+  rescue
+    e -> {:error, "Failed to generate snippet: #{inspect(e)}"}
   end
 
   @doc """

@@ -136,6 +136,9 @@ defmodule TantivyEx.Native do
   def searcher_search_with_query(_searcher, _query, _limit, _include_docs),
     do: :erlang.nif_error(:nif_not_loaded)
 
+  def searcher_snippet(_searcher, _query, _field_name, _text, _max_num_chars),
+    do: :erlang.nif_error(:nif_not_loaded)
+
   # Tokenizer functions
   def tokenizer_manager_new(), do: :erlang.nif_error(:nif_not_loaded)
   def register_simple_tokenizer(_name), do: :erlang.nif_error(:nif_not_loaded)

@@ -14,6 +14,7 @@ This guide covers query types, search strategies, and best practices for searchi
 - [Basic Search](#basic-search)
 - [Query Types](#query-types)
 - [Search Parameters](#search-parameters)
+- [Snippets and Highlighting](#snippets-and-highlighting)
 - [Advanced Search Patterns](#advanced-search-patterns)
 - [Performance Optimization](#performance-optimization)
 - [Real-world Examples](#real-world-examples)
@@ -257,6 +258,39 @@ defmodule MyApp.SearchRanker do
   defp calculate_field_score(_field_value, _query_terms, _weight), do: 0.0
 end
 ```
+
+## Snippets and Highlighting
+
+`TantivyEx.Searcher.snippet/5` extracts the fragment of a text that best
+matches a query, with the positions of the matched terms. It uses Tantivy's
+`SnippetGenerator`, so terms are matched with the field's tokenizer, exactly as
+in the search.
+
+```elixir
+{:ok, parser} = TantivyEx.Query.parser(index, ["title", "body"])
+{:ok, query} = TantivyEx.Query.parse(parser, "rust")
+{:ok, searcher} = TantivyEx.Searcher.new(index)
+
+{:ok, %{fragment: fragment, highlighted: highlighted}} =
+  TantivyEx.Searcher.snippet(searcher, query, "body", body, max_num_chars: 120)
+```
+
+`highlighted` holds byte ranges `{start, stop}` into `fragment` (`stop`
+excluded). Rather than generating HTML, split the fragment into segments and
+render the matches as you need, escaping the text:
+
+```elixir
+{segments, last} =
+  Enum.map_reduce(highlighted, 0, fn {start, stop}, from ->
+    {[{:text, binary_part(fragment, from, start - from)},
+      {:match, binary_part(fragment, start, stop - start)}], stop}
+  end)
+
+segments = List.flatten(segments) ++ [{:text, binary_part(fragment, last, byte_size(fragment) - last)}]
+```
+
+The text does not need to be stored in the index: pass the field's text from
+wherever it lives.
 
 ## Advanced Search Patterns
 

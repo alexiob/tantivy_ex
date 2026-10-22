@@ -3,6 +3,7 @@ use rustler::{Encoder, Env, NifResult, ResourceArc, Term};
 use serde_json;
 use tantivy::collector::TopDocs;
 use tantivy::schema::Value;
+use tantivy::snippet::SnippetGenerator;
 use tantivy::TantivyDocument;
 
 use crate::modules::resources::{QueryResource, SearcherResource};
@@ -230,4 +231,43 @@ pub fn searcher_search_with_query(
             e
         )))),
     }
+}
+
+/// Generates a snippet of `text` for the terms of `query` in `field`.
+///
+/// The text is tokenized with the field's tokenizer, so matches follow the
+/// same rules as the search. It does not need to be stored in the index.
+/// Returns the fragment and the byte ranges `{start, end}` of its highlighted
+/// terms, `end` being exclusive.
+#[rustler::nif(schedule = "DirtyCpu")]
+pub fn searcher_snippet(
+    searcher_res: ResourceArc<SearcherResource>,
+    query_res: ResourceArc<QueryResource>,
+    field_name: String,
+    text: String,
+    max_num_chars: usize,
+) -> NifResult<(String, Vec<(usize, usize)>)> {
+    let field = searcher_res
+        .searcher
+        .schema()
+        .get_field(&field_name)
+        .map_err(|e| rustler::Error::Term(Box::new(format!("Field not found: {}", e))))?;
+
+    let mut generator = SnippetGenerator::create(&searcher_res.searcher, &*query_res.query, field)
+        .map_err(|e| {
+            rustler::Error::Term(Box::new(format!(
+                "Failed to create snippet generator: {}",
+                e
+            )))
+        })?;
+    generator.set_max_num_chars(max_num_chars);
+
+    let snippet = generator.snippet(&text);
+    let highlighted = snippet
+        .highlighted()
+        .iter()
+        .map(|range| (range.start, range.end))
+        .collect();
+
+    Ok((snippet.fragment().to_string(), highlighted))
 }
